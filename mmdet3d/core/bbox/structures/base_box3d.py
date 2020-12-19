@@ -3,6 +3,7 @@ import torch
 from abc import abstractmethod
 
 from mmdet3d.ops.iou3d import iou3d_cuda
+from mmdet3d.ops.rotated_iou.oriented_iou_loss import cal_giou_3d
 from .utils import limit_period, xywhr2xyxyr
 
 
@@ -401,12 +402,18 @@ class BaseInstance3DBoxes(object):
         assert type(boxes1) == type(boxes2), '"boxes1" and "boxes2" should' \
             f'be in the same type, got {type(boxes1)} and {type(boxes2)}.'
 
-        assert mode in ['iou', 'iof']
+        assert mode in ['iou', 'iof', 'giou']
 
         rows = len(boxes1)
         cols = len(boxes2)
         if rows * cols == 0:
             return boxes1.tensor.new(rows, cols)
+
+        if mode == 'giou':
+            boxes1 = boxes1.tensor.repeat(cols, 1)
+            boxes2 = boxes2.tensor.repeat_interleave(rows, 0)
+            giou = 1. - cal_giou_3d(boxes1[None, ...], boxes2[None, ...])[0][0]
+            return giou.reshape(rows, cols)
 
         # height overlap
         overlaps_h = cls.height_overlaps(boxes1, boxes2)

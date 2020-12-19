@@ -8,9 +8,10 @@ from .parta2 import PartA2
 from .ssd3dnet import SSD3DNet
 from .votenet import VoteNet
 from .voxelnet import VoxelNet
+from .fcos3d import FCOS3D
 
 __all__ = [
     'Base3DDetector', 'VoxelNet', 'DynamicVoxelNet', 'MVXTwoStageDetector',
     'DynamicMVXFasterRCNN', 'MVXFasterRCNN', 'PartA2', 'VoteNet', 'H3DNet',
-    'CenterPoint', 'SSD3DNet'
+    'CenterPoint', 'SSD3DNet', 'FCOS3D'
 ]

@@ -70,9 +70,13 @@ class SUNRGBDData(object):
         self.root_dir = root_path
         self.split = split
         self.split_dir = osp.join(root_path, 'sunrgbd_trainval')
+        # self.classes = [
+        #     'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
+        #     'night_stand', 'bookshelf', 'bathtub'
+        # ]
         self.classes = [
-            'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-            'night_stand', 'bookshelf', 'bathtub'
+            'cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
+            'night_stand', 'sink', 'lamp'
         ]
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {
