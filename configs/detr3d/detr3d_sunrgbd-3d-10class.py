@@ -119,7 +119,7 @@ optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 lr_config = dict(policy='step', step=[33])
 total_epochs = 50
 
-checkpoint_config = dict(interval=1)
+checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 # yapf:disable
 log_config = dict(
     interval=50,
