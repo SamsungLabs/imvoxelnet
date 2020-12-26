@@ -268,14 +268,16 @@ class Transformer3DHead(AnchorFreeHead):
         x_2d = bboxes[:, 0] * img_w
         y_2d = bboxes[:, 1] * img_h
         centers_2d_3 = torch.stack((
-            x_2d * bboxes[:, 2],
-            y_2d * bboxes[:, 2],
-            bboxes[:, 2]
+            x_2d,
+            y_2d,
+            torch.ones_like(x_2d),
         ), dim=-1)
         intrinsic = bboxes.new_tensor(img_meta['lidar2img']['intrinsic'])
         extrinsic = bboxes.new_tensor(img_meta['lidar2img']['extrinsic'])
-        centers_3d = extrinsic @ torch.inverse(intrinsic) @ centers_2d_3.T
-        centers_3d = centers_3d.T
+        centers_2d_3 = (torch.inverse(intrinsic) @ centers_2d_3.T).T
+        centers_2d_3 = centers_2d_3 / torch.norm(centers_2d_3, dim=-1, keepdim=True)
+        centers_2d_3 = centers_2d_3 * bboxes[:, 2:3]
+        centers_3d = (extrinsic @ centers_2d_3.T).T
         phis = bboxes[:, 6]
         alphas = torch.atan2(centers_3d[..., 1], centers_3d[..., 0]) - phis
         shifted_bboxes_3d = torch.cat((

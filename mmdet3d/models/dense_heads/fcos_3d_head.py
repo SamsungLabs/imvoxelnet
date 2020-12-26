@@ -174,8 +174,8 @@ class FCOS3DHead(AnchorFreeHead):
         """Initialize predictor layers of the head."""
         self.conv_cls = nn.Conv2d(
             self.feat_channels, self.cls_out_channels, 3, padding=1)
-        # l, t, r, b, z_c, w, h, l, sin_phi, cos_phi
-        self.conv_reg = nn.Conv2d(self.feat_channels, 10, 3, padding=1)
+        # l, t, r, b, z_c, w, h, l, phi
+        self.conv_reg = nn.Conv2d(self.feat_channels, 9, 3, padding=1)
 
     def _init_layers(self):
         """Initialize layers of the head."""
@@ -296,22 +296,22 @@ class FCOS3DHead(AnchorFreeHead):
             device=bboxes_3d.device
         )
         centers_2d = centers_2d / scale_factors[:, None, :]
-        centers_2d_3 = torch.stack((
-            centers_2d[..., 0] * bboxes_3d[..., 4],
-            centers_2d[..., 1] * bboxes_3d[..., 4],
-            bboxes_3d[..., 4]
-        ), dim=-1)
-        cameras = []
+        intrinsics, extrinsics = [], []
         for img_meta in img_metas:
-            intrinsic = torch.tensor(img_meta['lidar2img']['intrinsic'], dtype=torch.float32)
-            extrinsic = torch.tensor(img_meta['lidar2img']['extrinsic'], dtype=torch.float32)
-            camera = extrinsic @ torch.inverse(intrinsic)
-            cameras.append(camera)
-        cameras = torch.stack(cameras).to(bboxes_3d.device)
-        centers_3d = (cameras @ centers_2d_3.transpose(1, 2)).transpose(1, 2)
-        phi_norm = torch.sqrt(torch.pow(bboxes_3d[..., 8], 2) + torch.pow(bboxes_3d[..., 9], 2))
-        phi = torch.atan2(bboxes_3d[..., 8] / phi_norm, bboxes_3d[..., 9] / phi_norm)
-        alphas = torch.atan2(centers_3d[..., 1], centers_3d[..., 0]) - phi
+            intrinsics.append(torch.tensor(img_meta['lidar2img']['intrinsic']))
+            extrinsics.append(torch.tensor(img_meta['lidar2img']['extrinsic']))
+        intrinsics = torch.stack(intrinsics).to(dtype=torch.float32, device=bboxes_3d.device)
+        extrinsics = torch.stack(extrinsics).to(dtype=torch.float32, device=bboxes_3d.device)
+        centers_2d_3 = torch.stack((
+            centers_2d[..., 0],
+            centers_2d[..., 1],
+            torch.ones_like(centers_2d[..., 0])
+        ), dim=-1)
+        centers_2d_3 = (torch.inverse(intrinsics) @ centers_2d_3.transpose(1, 2)).transpose(1, 2)
+        centers_2d_3 = centers_2d_3 / torch.norm(centers_2d_3, dim=-1, keepdim=True)
+        centers_2d_3 = centers_2d_3 * bboxes_3d[..., 4:5]
+        centers_3d = (extrinsics @ centers_2d_3.transpose(1, 2)).transpose(1, 2)
+        alphas = torch.atan2(centers_3d[..., 1], centers_3d[..., 0]) - bboxes_3d[..., 8]
         shifted_bboxes_3d = torch.cat((
             centers_3d, bboxes_3d[..., 5:8], alphas[..., None]
         ), dim=-1).reshape(-1, 7)
@@ -376,7 +376,7 @@ class FCOS3DHead(AnchorFreeHead):
             # bbox_pred.permute(0, 2, 3, 1).reshape(-1, 7)
             self._bboxes_2d_to_3d(
                 img_metas,
-                bbox_3d_pred.permute(0, 2, 3, 1).reshape(num_imgs, -1, 10),
+                bbox_3d_pred.permute(0, 2, 3, 1).reshape(num_imgs, -1, 9),
                 points.repeat(num_imgs, 1).reshape(num_imgs, -1, 2)
             ).reshape(-1, 7)
             for bbox_3d_pred, points in zip(bbox_3d_preds, all_level_points)
@@ -565,7 +565,7 @@ class FCOS3DHead(AnchorFreeHead):
                 -1, self.cls_out_channels).sigmoid()
             centerness = centerness.permute(1, 2, 0).reshape(-1).sigmoid()
 
-            bbox_3d_pred = bbox_3d_pred.permute(1, 2, 0).reshape(-1, 10)
+            bbox_3d_pred = bbox_3d_pred.permute(1, 2, 0).reshape(-1, 9)
             bbox_pred = bbox_3d_pred[:, :4]
             bbox_3d_pred = self._bboxes_2d_to_3d(
                 [img_meta], bbox_3d_pred[None, ...], points[None, ...])[0]
