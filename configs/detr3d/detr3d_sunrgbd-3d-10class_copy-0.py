@@ -19,7 +19,7 @@ model = dict(
             type='Transformer',
             embed_dims=256,
             num_heads=8,
-            num_encoder_layers=6,  # TODO: 6 ?
+            num_encoder_layers=0,  # TODO: 6 ?
             num_decoder_layers=6,
             feedforward_channels=2048,
             dropout=0.1,
@@ -47,7 +47,7 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations3D'),
-    dict(type='Resize', img_scale=[(384, 288), (896, 672)], keep_ratio=True),
+    dict(type='Resize', img_scale=[(480, 1333), (800, 1333)], keep_ratio=True),
     dict(type='RandomFlip2D', flip_ratio=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=1),
@@ -61,7 +61,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(640, 480),
+        img_scale=(1333, 800),
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -76,7 +76,7 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=2,  # TODO: 8
+    samples_per_gpu=2,
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
