@@ -116,8 +116,8 @@ optimizer = dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 # learning policy
-lr_config = dict(policy='step', step=[33])
-total_epochs = 50
+lr_config = dict(policy='step', step=[77])  # TODO: 33
+total_epochs = 100  # TODO: 50
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 # yapf:disable
@@ -132,5 +132,5 @@ evaluation = dict(interval=1)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None
-resume_from = None
+resume_from = './work_dirs/detr3d_sunrgbd-3d-10class_copy-0/latest.pth'
 workflow = [('train', 1)]
