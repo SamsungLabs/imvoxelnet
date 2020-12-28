@@ -20,8 +20,8 @@ model = dict(
             embed_dims=256,
             num_heads=8,
             num_encoder_layers=0,  # TODO: 6 ?
-            num_decoder_layers=1,  # TODO: 6
-            feedforward_channels=2048,
+            num_decoder_layers=6,  # TODO: 6
+            feedforward_channels=512,
             dropout=0.1,
             act_cfg=dict(type='ReLU', inplace=True),
             norm_cfg=dict(type='LN'),
