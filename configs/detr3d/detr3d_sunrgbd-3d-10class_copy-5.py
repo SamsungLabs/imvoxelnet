@@ -1,6 +1,6 @@
 model = dict(
     type='FCOS3D',
-    pretrained='torchvision://resnet50',
+    pretrained='torchvision://resnet18',
     backbone=dict(
         type='ResNet',
         depth=18,
