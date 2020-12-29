@@ -37,12 +37,12 @@ model = dict(
              loss_weight=1.0,
              class_weight=1.0),
         loss_bbox=dict(type='L1Loss', loss_weight=2.),
-        loss_iou=dict(type='GIoU3DLoss', loss_weight=2.),
+        loss_iou=dict(type='GIoU3DLoss', loss_weight=1.),
     ))
 # training and testing settings
 train_cfg = dict(
     assigner=dict(
-        type='HungarianAssigner3D', cls_weight=1., bbox_weight=2., iou_weight=2.,
+        type='HungarianAssigner3D', cls_weight=1., bbox_weight=2., iou_weight=1.,
         iou_calculator=dict(type='BboxOverlaps3D', coordinate='depth'), iou_mode='giou'))
 test_cfg = dict(max_per_img=32)
 img_norm_cfg = dict(

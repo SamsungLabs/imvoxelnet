@@ -113,6 +113,20 @@ class SUNRGBD2DDataset(SUNRGBDDataset):
 
         return dict(intrinsic=intrinsic, extrinsic=extrinsic)
 
+    def get_cat_ids(self, idx):
+        """Get category ids by index.
+
+        Args:
+            idx (int): Index of data.
+
+        Returns:
+            list[int]: All categories in the image of specified index.
+        """
+        if self.data_infos[idx]['annos']['gt_num'] != 0:
+            return self.data_infos[idx]['annos']['class'].astype(np.int).tolist()
+        else:
+            return []
+
     def evaluate(self,
                  results,
                  metric=None,
