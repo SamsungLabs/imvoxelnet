@@ -32,7 +32,7 @@ model = dict(
             type='SinePositionalEncoding', num_feats=128, normalize=True),
         loss_cls=dict(
             type='CrossEntropyLoss',
-            bg_cls_weight=0.1,
+            bg_cls_weight=0.2,
             use_sigmoid=False,
             loss_weight=1.0,
             class_weight=1.0),
