@@ -9,7 +9,8 @@ def create_indoor_info_file(data_path,
                             pkl_prefix='sunrgbd',
                             save_path=None,
                             use_v1=False,
-                            workers=4):
+                            workers=4,
+                            monocular=False):
     """Create indoor information file.
 
     Get information of the raw data and save it to the pkl file.
@@ -30,9 +31,9 @@ def create_indoor_info_file(data_path,
     val_filename = os.path.join(save_path, f'{pkl_prefix}_infos_val.pkl')
     if pkl_prefix == 'sunrgbd':
         train_dataset = SUNRGBDData(
-            root_path=data_path, split='train', use_v1=use_v1)
+            root_path=data_path, split='train', use_v1=use_v1, monocular=monocular)
         val_dataset = SUNRGBDData(
-            root_path=data_path, split='val', use_v1=use_v1)
+            root_path=data_path, split='val', use_v1=use_v1, monocular=monocular)
     else:
         train_dataset = ScanNetData(root_path=data_path, split='train')
         val_dataset = ScanNetData(root_path=data_path, split='val')

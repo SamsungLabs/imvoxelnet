@@ -46,7 +46,7 @@ train_cfg = dict(
 test_cfg = dict(max_per_img=32)
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-dataset_type = 'SUNRGBD2DDataset'
+dataset_type = 'SUNRGBDMonocularDataset'
 data_root = 'data/sunrgbd/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
                'night_stand', 'sink', 'lamp')

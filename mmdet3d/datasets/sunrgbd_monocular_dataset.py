@@ -7,7 +7,7 @@ from .sunrgbd_dataset import SUNRGBDDataset
 
 
 @DATASETS.register_module()
-class SUNRGBD2DDataset(SUNRGBDDataset):
+class SUNRGBDMonocularDataset(SUNRGBDDataset):
     def __init__(self,
                  data_root,
                  ann_file,
@@ -99,12 +99,6 @@ class SUNRGBD2DDataset(SUNRGBDDataset):
 
     def _get_matrices(self, index):
         info = self.data_infos[index]
-        # intrinsic = np.zeros((3, 4))
-        # intrinsic[:3, :3] = info['calib']['K'].reshape(3, 3).T
-        # extrinsic = np.eye(4)
-        # extrinsic[:3, :3] = info['calib']['Rt']
-        # extrinsic[:, [1, 2]] = extrinsic[:, [2, 1]]
-        # extrinsic[:, 1] = -1 * extrinsic[:, 1]
 
         intrinsic = info['calib']['K'].copy().reshape(3, 3).T
         extrinsic = info['calib']['Rt'].copy()

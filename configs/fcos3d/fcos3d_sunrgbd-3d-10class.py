@@ -52,10 +52,8 @@ test_cfg = dict(
 img_norm_cfg = dict(
     mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
 
-dataset_type = 'SUNRGBD2DDataset'
+dataset_type = 'SUNRGBDMonocularDataset'
 data_root = 'data/sunrgbd/'
-# class_names = ('bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-#                'night_stand', 'bookshelf', 'bathtub')  # TODO: ?
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
                'night_stand', 'sink', 'lamp')
 train_pipeline = [
