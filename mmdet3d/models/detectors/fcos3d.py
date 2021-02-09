@@ -1,6 +1,7 @@
+import torch
 from mmcv.runner import auto_fp16
 from mmdet.models import DETECTORS
-from mmdet3d.core import bbox3d2result, merge_aug_bboxes_3d
+from mmdet3d.core import bbox3d2result, merge_aug_bboxes_3d, Box3DMode
 from mmdet.models.detectors import SingleStageDetector
 
 
@@ -65,23 +66,28 @@ class FCOS3D(SingleStageDetector):
         return bbox_results
 
     def aug_test(self, img_metas, imgs, rescale=False):
-        """Adapted from VoteNet."""
-        feats = self.extract_feats(imgs)
+        raise NotImplementedError
 
-        # only support aug_test for one sample
-        aug_bboxes = []
-        for x, img_meta in zip(feats, img_metas):
-            bbox_preds = self.bbox_head(x, self.test_cfg.sample_mod)
-            bbox_list = self.bbox_head.get_bboxes(
-                bbox_preds, img_meta, rescale=rescale)
-            bbox_list = [
-                dict(boxes_3d=bboxes, scores_3d=scores, labels_3d=labels)
-                for bboxes, scores, labels in bbox_list
-            ]
-            aug_bboxes.append(bbox_list[0])
 
-        # after merging, bboxes will be rescaled to the original image size
-        merged_bboxes = merge_aug_bboxes_3d(aug_bboxes, img_metas,
-                                            self.bbox_head.test_cfg)
-
-        return [merged_bboxes]
+@DETECTORS.register_module()
+class NuScenesMultiViewFCOS3D(FCOS3D):
+    def aug_test(self, img_metas, imgs, rescale=False):
+        bbox_results = []
+        for img_meta, img in zip(img_metas, imgs):
+            bbox_results.append(self.simple_test(img_meta, img, rescale)[0])
+            boxes = bbox_results[-1]['boxes_3d']
+            boxes.translate(-img_meta[0]['lidar2img']['global'])
+            boxes = boxes.convert_to(Box3DMode.LIDAR)
+            bbox_results[-1]['boxes_3d'] = boxes.tensor
+        bbox_results_dict = {key: [] for key in bbox_results[0]}
+        for data in bbox_results:
+            for key, val in data.items():
+                bbox_results_dict[key].append(val)
+        # TODO: use nms
+        for key in bbox_results_dict:
+            bbox_results_dict[key] = torch.cat(bbox_results_dict[key])
+        mask = torch.argsort(bbox_results_dict['scores_3d'], descending=True)[:self.test_cfg['max_per_scene']]
+        for key in bbox_results_dict:
+            bbox_results_dict[key] = bbox_results_dict[key][mask]
+        bbox_results_dict['boxes_3d'] = img_metas[0][0]['box_type_3d'](bbox_results_dict['boxes_3d'], origin=(.5, .5, .5))
+        return [bbox_results_dict]

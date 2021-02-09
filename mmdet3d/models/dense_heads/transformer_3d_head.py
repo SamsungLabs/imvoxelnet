@@ -50,6 +50,7 @@ class Transformer3DHead(AnchorFreeHead):
                  num_classes,
                  in_channels,
                  num_fcs=2,
+                 loss_bbox_type='center',
                  transformer=dict(
                      type='Transformer',
                      embed_dims=256,
@@ -102,6 +103,7 @@ class Transformer3DHead(AnchorFreeHead):
             f' be exactly 2 times of num_feats. Found {embed_dims}' \
             f' and {num_feats}.'
         assert test_cfg is not None and 'max_per_img' in test_cfg
+        assert loss_bbox_type in ('center', 'corners')
 
         class_weight = loss_cls.get('class_weight', None)
         if class_weight is not None:
@@ -143,6 +145,7 @@ class Transformer3DHead(AnchorFreeHead):
         self.cls_out_channels = num_classes + 1
         self.in_channels = in_channels
         self.num_fcs = num_fcs
+        self.loss_bbox_type = loss_bbox_type
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.use_sigmoid_cls = use_sigmoid_cls
@@ -283,9 +286,7 @@ class Transformer3DHead(AnchorFreeHead):
         shifted_bboxes_3d = torch.cat((
             centers_3d, bboxes[:, 3:6], alphas[..., None]
         ), dim=-1)
-        shifted_bboxes_3d = img_meta['box_type_3d'](
-            shifted_bboxes_3d, origin=(.5, .5, .5))
-        return shifted_bboxes_3d.tensor
+        return shifted_bboxes_3d
 
     @force_fp32(apply_to=('all_cls_scores_list', 'all_bbox_preds_list'))
     def loss(self,
@@ -427,15 +428,21 @@ class Transformer3DHead(AnchorFreeHead):
         # bboxes = bbox_cxcywh_to_xyxy(bbox_preds) * factors
         # bboxes_gt = bbox_cxcywh_to_xyxy(bbox_targets) * factors
 
-        # print(bbox_preds.reshape(-1, 7), bbox_targets)
-
         # regression IoU loss, defaultly GIoU loss
         loss_iou = self.loss_iou(
-            bbox_preds.reshape(-1, 7), bbox_targets, bbox_weights, avg_factor=num_total_pos)
+            bbox_preds, bbox_targets, bbox_weights, avg_factor=num_total_pos)
 
         # regression L1 loss
-        loss_bbox = self.loss_bbox(
-            bbox_preds.reshape(-1, 7)[:, :3], bbox_targets[:, :3], bbox_weights[:, :3], avg_factor=num_total_pos)
+        if self.loss_bbox_type == 'center':
+            loss_bbox = self.loss_bbox(
+                bbox_preds[:, :3], bbox_targets[:, :3], bbox_weights[:, :3], avg_factor=num_total_pos)
+        else:
+            loss_bbox = self.loss_bbox(
+                img_metas[0]['box_type_3d'](bbox_preds, origin=(.5, .5, .5)).corners.reshape(-1, 24),
+                img_metas[0]['box_type_3d'](bbox_targets, origin=(.5, .5, .5)).corners.reshape(-1, 24),
+                bbox_weights[:, :1].repeat(1, 24),
+                avg_factor=num_total_pos
+            )
         return loss_cls, loss_bbox, loss_iou
 
     def get_targets(self,
@@ -530,7 +537,7 @@ class Transformer3DHead(AnchorFreeHead):
                 - pos_inds (Tensor): Sampled positive indices for each image.
                 - neg_inds (Tensor): Sampled negative indices for each image.
         """
-        gt_bboxes = gt_bboxes.tensor.to(bbox_pred.device)
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=-1).to(bbox_pred.device)
         gt_labels = gt_labels.to(bbox_pred.device)
         num_bboxes = bbox_pred.size(0)
         # assigner and sampler
@@ -685,12 +692,28 @@ class Transformer3DHead(AnchorFreeHead):
         # if rescale:
         #     det_bboxes /= det_bboxes.new_tensor(scale_factor)
         det_bboxes = self.bboxes_2d_to_3d(bbox_pred, img_meta)
-        det_bboxes = img_meta['box_type_3d'](det_bboxes)
+        det_bboxes = img_meta['box_type_3d'](det_bboxes, origin=(.5, .5, .5))
         return det_bboxes, scores, det_labels
 
 
 @BBOX_ASSIGNERS.register_module()
 class HungarianAssigner3D(HungarianAssigner):
+    def __init__(self,
+                 loss_bbox_type='center',
+                 cls_weight=1.,
+                 bbox_weight=1.,
+                 iou_weight=1.,
+                 iou_calculator=dict(type='BboxOverlaps2D'),
+                 iou_mode='giou'):
+        self.loss_bbox_type = loss_bbox_type
+        super().__init__(
+            cls_weight=cls_weight,
+            bbox_weight=bbox_weight,
+            iou_weight=iou_weight,
+            iou_calculator=iou_calculator,
+            iou_mode=iou_mode
+        )
+
     def assign(self,
                bbox_pred,
                cls_pred,
@@ -765,9 +788,15 @@ class HungarianAssigner3D(HungarianAssigner):
         # factor = torch.Tensor([img_w, img_h, img_w,
         #                        img_h]).unsqueeze(0).to(gt_bboxes.device)
         # gt_bboxes_normalized = gt_bboxes / factor
-        bbox_cost = torch.cdist(
-            bbox_pred[..., :3], gt_bboxes[..., :3],  # bbox_xyxy_to_cxcywh(gt_bboxes_normalized),
-            p=1)  # [num_bboxes, num_gt]
+        if self.loss_bbox_type == 'center':
+            bbox_cost = torch.cdist(
+                bbox_pred[..., :3], gt_bboxes[..., :3],  # bbox_xyxy_to_cxcywh(gt_bboxes_normalized),
+                p=1)  # [num_bboxes, num_gt]
+        else:
+            bbox_cost = torch.cdist(
+                img_meta['box_type_3d'](bbox_pred, origin=(.5, .5, .5)).corners.reshape(-1, 24),
+                img_meta['box_type_3d'](gt_bboxes, origin=(.5, .5, .5)).corners.reshape(-1, 24),  # bbox_xyxy_to_cxcywh(gt_bboxes_normalized),
+                p=1)
 
         # regression iou cost, defaultly giou is used in official DETR.
         # bboxes = bbox_cxcywh_to_xyxy(bbox_pred) * factor
@@ -782,7 +811,7 @@ class HungarianAssigner3D(HungarianAssigner):
         cost = cost + self.iou_weight * iou_cost
 
         # 3. do Hungarian matching on CPU using linear_sum_assignment
-        cost = cost.detach().cpu()
+        cost = cost.detach().cpu().numpy()
         matched_row_inds, matched_col_inds = linear_sum_assignment(cost)
         matched_row_inds = torch.from_numpy(matched_row_inds).to(
             bbox_pred.device)

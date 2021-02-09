@@ -161,8 +161,7 @@ class SUNRGBDData(object):
                 osp.join(self.root_dir, 'points', f'{sample_idx:06d}.bin'))
 
             info['pts_path'] = osp.join('points', f'{sample_idx:06d}.bin')
-            img_name = osp.join(self.image_dir, f'{sample_idx:06d}')
-            img_path = osp.join(self.image_dir, img_name)
+            img_path = osp.join('sunrgbd_trainval', 'image', f'{sample_idx:06d}.jpg')
             image_info = {
                 'image_idx': sample_idx,
                 'image_shape': self.get_image_shape(sample_idx),
