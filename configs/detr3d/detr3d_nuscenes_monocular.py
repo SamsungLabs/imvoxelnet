@@ -86,7 +86,7 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=4,
+    samples_per_gpu=2,
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
@@ -126,8 +126,8 @@ optimizer = dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 # learning policy
-lr_config = dict(policy='step', step=[33])
-total_epochs = 50
+lr_config = dict(policy='step', step=[6])
+total_epochs = 10
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 # yapf:disable
