@@ -1,7 +1,6 @@
 import numpy as np
 from os import path as osp
 
-from mmdet3d.core.bbox import DepthInstance3DBoxes
 from mmdet.datasets import DATASETS
 from .sunrgbd_dataset import SUNRGBDDataset
 
@@ -43,14 +42,8 @@ class SUNRGBDMonocularDataset(SUNRGBDDataset):
                 - ann_info (dict): Annotation info.
         """
         info = self.data_infos[index]
-        sample_idx = info['point_cloud']['lidar_idx']
-        pts_filename = osp.join(self.data_root, info['pts_path'])
-        # TODO: [9:] + '.jpg' here is a temporary hack due to the bug in sunrgbd_data_utils.py
-        img_filename = osp.join(self.data_root, info['image']['image_path'][53:] + '.jpg')
+        img_filename = osp.join(self.data_root, info['image']['image_path'])
         input_dict = dict(
-            pts_filename=pts_filename,
-            sample_idx=sample_idx,
-            file_name=pts_filename,
             img_prefix=None,
             img_info=dict(filename=img_filename),
             lidar2img=self._get_matrices(index)
@@ -62,40 +55,6 @@ class SUNRGBDMonocularDataset(SUNRGBDDataset):
             if self.filter_empty_gt and len(annos['gt_bboxes_3d']) == 0:
                 return None
         return input_dict
-
-    def get_ann_info(self, index):
-        """Get annotation info according to the given index.
-
-        Args:
-            index (int): Index of the annotation data to get.
-
-        Returns:
-            dict: annotation information consists of the following keys:
-
-                - gt_bboxes_3d (:obj:`DepthInstance3DBoxes`): \
-                    3D ground truth bboxes
-                - gt_labels_3d (np.ndarray): Labels of ground truths.
-                - pts_instance_mask_path (str): Path of instance masks.
-                - pts_semantic_mask_path (str): Path of semantic masks.
-        """
-        # Use index to get the annos, thus the evalhook could also use this api
-        info = self.data_infos[index]
-        if info['annos']['gt_num'] != 0:
-            gt_bboxes_3d = info['annos']['gt_boxes_upright_depth'].astype(
-                np.float32)  # k, 6
-            gt_labels_3d = info['annos']['class'].astype(np.long)
-        else:
-            gt_bboxes_3d = np.zeros((0, 7), dtype=np.float32)
-            gt_labels_3d = np.zeros((0, ), dtype=np.long)
-
-        # to target box structure
-        gt_bboxes_3d = DepthInstance3DBoxes(
-            gt_bboxes_3d, origin=(0.5, 0.5, 0.5)).convert_to(self.box_mode_3d)
-
-        return {
-            'gt_bboxes_3d': gt_bboxes_3d,
-            'gt_labels_3d': gt_labels_3d
-        }
 
     def _get_matrices(self, index):
         info = self.data_infos[index]

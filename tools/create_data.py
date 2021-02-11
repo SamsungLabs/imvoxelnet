@@ -5,6 +5,7 @@ from tools.data_converter import indoor_converter as indoor
 from tools.data_converter import kitti_converter as kitti
 from tools.data_converter import lyft_converter as lyft_converter
 from tools.data_converter import nuscenes_converter as nuscenes_converter
+from tools.data_converter import nuscenes_monocular_converter
 from tools.data_converter.create_gt_database import create_groundtruth_database
 
 
@@ -65,6 +66,12 @@ def nuscenes_data_prep(root_path,
         root_path, info_val_path, version=version)
     create_groundtruth_database(dataset_name, root_path, info_prefix,
                                 f'{out_dir}/{info_prefix}_infos_train.pkl')
+
+
+def nuscenes_monocular_data_prep(root_path,
+                                 info_prefix):
+    nuscenes_monocular_converter.create_nuscenes_monocular_infos(
+        root_path, info_prefix)
 
 
 def lyft_data_prep(root_path,
@@ -240,6 +247,10 @@ if __name__ == '__main__':
             dataset_name='NuScenesDataset',
             out_dir=args.out_dir,
             max_sweeps=args.max_sweeps)
+    elif args.dataset == 'nuscenes_monocular':
+        nuscenes_monocular_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag)
     elif args.dataset == 'lyft':
         train_version = f'{args.version}-train'
         lyft_data_prep(
@@ -276,7 +287,8 @@ if __name__ == '__main__':
             root_path=args.root_path,
             info_prefix=args.extra_tag,
             out_dir=args.out_dir,
-            workers=args.workers
+            workers=args.workers,
+            monocular=False
         )
     elif args.dataset == 'sunrgbd_monocular':
         sunrgbd_data_prep(
