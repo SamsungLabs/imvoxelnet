@@ -114,7 +114,7 @@ def lyft_data_prep(root_path,
         root_path, info_val_path, version=version)
 
 
-def scannet_data_prep(root_path, info_prefix, out_dir, workers):
+def scannet_data_prep(root_path, info_prefix, out_dir, workers, monocular):
     """Prepare the info file for scannet dataset.
 
     Args:
@@ -124,7 +124,7 @@ def scannet_data_prep(root_path, info_prefix, out_dir, workers):
         workers (int): Number of threads to be used.
     """
     indoor.create_indoor_info_file(
-        root_path, info_prefix, out_dir, workers=workers)
+        root_path, info_prefix, out_dir, workers=workers, monocular=monocular)
 
 
 def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers, monocular):
@@ -281,7 +281,17 @@ if __name__ == '__main__':
             root_path=args.root_path,
             info_prefix=args.extra_tag,
             out_dir=args.out_dir,
-            workers=args.workers)
+            workers=args.workers,
+            monocular=False
+        )
+    elif args.dataset == 'scannet_monocular':
+        scannet_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+            workers=args.workers,
+            monocular=True
+        )
     elif args.dataset == 'sunrgbd':
         sunrgbd_data_prep(
             root_path=args.root_path,

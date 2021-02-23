@@ -70,7 +70,7 @@ train_pipeline = [
 # whether we use the default setting or use size_divisor=1.
 test_pipeline = [
     dict(
-        type='NuScenesMultiView',
+        type='NuscenesMultiViewPipeline',
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(900, 1600), keep_ratio=True),
