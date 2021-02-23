@@ -117,25 +117,3 @@ class MultiScaleFlipAug3D(object):
         repr_str += f'pts_scale_ratio={self.pts_scale_ratio}, '
         repr_str += f'flip_direction={self.flip_direction})'
         return repr_str
-
-
-@PIPELINES.register_module()
-class NuScenesMultiView:
-    def __init__(self, transforms):
-        self.transforms = Compose(transforms)
-
-    def __call__(self, results):
-        aug_data = []
-        for i in range(len(results['img_info'])):
-            _results = dict()
-            for key in ['img_prefix', 'img_info', 'lidar2img']:
-                _results[key] = results[key][i]
-            for key in ['box_type_3d', 'box_mode_3d']:
-                _results[key] = results[key]
-            aug_data.append(self.transforms(_results))
-        # list of dict to dict of list
-        aug_data_dict = {key: [] for key in aug_data[0]}
-        for data in aug_data:
-            for key, val in data.items():
-                aug_data_dict[key].append(val)
-        return aug_data_dict

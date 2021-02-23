@@ -1,3 +1,4 @@
+import os
 import mmcv
 import numpy as np
 from concurrent import futures as futures
@@ -127,3 +128,47 @@ class ScanNetData(object):
         with futures.ThreadPoolExecutor(num_workers) as executor:
             infos = executor.map(process_single_scene, sample_id_list)
         return list(infos)
+
+
+class ScanNetMonocularData(ScanNetData):
+    def process_single_scene(self, sample_idx, has_label):
+        info = dict(image_paths=[], extrinsic=[])
+        frame_sub_path = f'sens_reader_100/scans/{sample_idx}/out'
+        frame_path = osp.join(self.root_dir, frame_sub_path)
+        base_file_names = {x.split('.')[0] for x in os.listdir(frame_path)}
+        base_file_names.remove('_info')
+        for base_file_name in base_file_names:
+            extrinsic = np.loadtxt(osp.join(frame_path, f'{base_file_name}.pose.txt'))
+            if np.all(np.isfinite(extrinsic)):
+                info['image_paths'].append(osp.join(frame_sub_path, f'{base_file_name}.color.jpg'))
+                info['extrinsic'].append(extrinsic)
+
+        with open(osp.join(frame_path, '_info.txt')) as file:
+            splits = file.readlines()[7].split(' = ')
+            assert splits[0] == 'm_calibrationColorIntrinsic'
+            info['intrinsic'] = np.fromstring(splits[1], sep=' ').reshape(4, 4)
+
+        if has_label:
+            annotations = {}
+            bbox_path = osp.join(self.root_dir, 'mmdetection3d', f'{sample_idx}_bbox.npy')
+            boxes_with_classes = np.load(bbox_path)
+            annotations['gt_num'] = boxes_with_classes.shape[0]
+            if annotations['gt_num'] != 0:
+                minmax_boxes3d = boxes_with_classes[:, :-1]  # k, 6
+                classes = boxes_with_classes[:, -1]  # k, 1
+                annotations['gt_boxes_upright_depth'] = minmax_boxes3d
+                annotations['class'] = np.array([
+                    self.cat_ids2class[classes[i]]
+                    for i in range(annotations['gt_num'])
+                ])
+            info['annos'] = annotations
+        return info
+
+    def get_infos(self, num_workers=4, has_label=True, sample_id_list=None):
+        sample_id_list = sample_id_list if sample_id_list is not None \
+            else self.sample_id_list
+        infos = []
+        for i, sample_idx in enumerate(sample_id_list):
+            print(f'{self.split} sample_idx: {sample_idx} {i}/{len(sample_id_list)}')
+            infos.append(self.process_single_scene(sample_idx, has_label))
+        return infos

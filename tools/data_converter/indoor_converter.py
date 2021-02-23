@@ -1,7 +1,7 @@
 import mmcv
 import os
 
-from tools.data_converter.scannet_data_utils import ScanNetData
+from tools.data_converter.scannet_data_utils import ScanNetData, ScanNetMonocularData
 from tools.data_converter.sunrgbd_data_utils import SUNRGBDData
 
 
@@ -35,8 +35,9 @@ def create_indoor_info_file(data_path,
         val_dataset = SUNRGBDData(
             root_path=data_path, split='val', use_v1=use_v1, monocular=monocular)
     else:
-        train_dataset = ScanNetData(root_path=data_path, split='train')
-        val_dataset = ScanNetData(root_path=data_path, split='val')
+        dataset = ScanNetMonocularData if monocular else ScanNetData
+        train_dataset = dataset(root_path=data_path, split='train')
+        val_dataset = dataset(root_path=data_path, split='val')
 
     infos_train = train_dataset.get_infos(num_workers=workers, has_label=True)
     mmcv.dump(infos_train, train_filename, 'pkl')

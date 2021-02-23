@@ -4,11 +4,12 @@ from .formating import Collect3D, DefaultFormatBundle, DefaultFormatBundle3D
 from .loading import (LoadAnnotations3D, LoadMultiViewImageFromFiles,
                       LoadPointsFromFile, LoadPointsFromMultiSweeps,
                       NormalizePointsColor, PointSegClassMapping)
-from .test_time_aug import MultiScaleFlipAug3D, NuScenesMultiView
+from .test_time_aug import MultiScaleFlipAug3D
 from .transforms_3d import (BackgroundPointsFilter, GlobalRotScaleTrans,
                             IndoorPointSample, ObjectNoise, ObjectRangeFilter,
                             ObjectSample, PointShuffle, PointsRangeFilter,
                             RandomFlip3D, VoxelBasedPointSampler)
+from .specific import NuScenesMultiViewPipeline, ScanNetMultiViewPipeline
 
 __all__ = [
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
@@ -16,6 +17,6 @@ __all__ = [
     'Compose', 'LoadMultiViewImageFromFiles', 'LoadPointsFromFile',
     'DefaultFormatBundle', 'DefaultFormatBundle3D', 'DataBaseSampler',
     'NormalizePointsColor', 'LoadAnnotations3D', 'IndoorPointSample',
-    'PointSegClassMapping', 'MultiScaleFlipAug3D', 'NuScenesMultiView',
+    'PointSegClassMapping', 'MultiScaleFlipAug3D', 'NuScenesMultiViewPipeline', 'ScanNetMultiViewPipeline',
     'LoadPointsFromMultiSweeps', 'BackgroundPointsFilter', 'VoxelBasedPointSampler'
 ]
