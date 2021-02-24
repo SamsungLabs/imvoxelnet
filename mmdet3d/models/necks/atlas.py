@@ -7,16 +7,24 @@ from mmdet.models import NECKS
 
 @NECKS.register_module()
 class AtlasNeck(nn.Module):
-    def __init__(self, channels, down_layers, up_layers, conditional):
+    def __init__(self, channels, out_channels, down_layers, up_layers, conditional):
         super().__init__()
         self.model = EncoderDecoder(channels=channels,
                                     layers_down=down_layers,
                                     layers_up=up_layers,
                                     cond_proj=conditional)
+        self.conv_blocks = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv3d(in_channels, out_channels, 3, padding=1),
+                nn.BatchNorm3d(out_channels),
+                nn.ReLU(inplace=True)
+            )
+         for in_channels in channels])
 
     @auto_fp16()
     def forward(self, x):
-        return self.model.forward(x)[::-1]
+        x = self.model.forward(x)[::-1]
+        return [self.conv_blocks[i](x[i]) for i in range(len(x))]
 
     def init_weights(self):
         pass

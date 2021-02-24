@@ -19,6 +19,7 @@ model = dict(
     neck_3d=dict(
         type='AtlasNeck',
         channels=[32, 64, 128, 256],
+        out_channels=32,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False
@@ -26,7 +27,7 @@ model = dict(
     bbox_head=dict(
         type='VoxelFCOS3DHead',
         n_classes=18,
-        in_channels=(32, 64, 128)
+        in_channels=32
     )
 )
 train_cfg = dict(n_voxels=(160, 160, 64), voxel_size=.04)
@@ -45,10 +46,10 @@ train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=10,
+        n_images=7,
         transforms=[
             dict(type='LoadImageFromFile'),
-            dict(type='Pad', size=(972, 1296)),
+            # dict(type='Pad', size=(972, 1296)),  # todo: ?
             dict(type='Resize', img_scale=(640, 480), keep_ratio=False),
             dict(type='Normalize', **img_norm_cfg)
         ]),
@@ -100,13 +101,14 @@ total_epochs = 12
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 log_config = dict(
-    interval=50,
+    interval=1,  # todo: 50
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
     ])
 evaluation = dict(interval=1)
 dist_params = dict(backend='nccl')
+find_unused_parameters = True  # todo: fix it
 log_level = 'INFO'
 load_from = None
 resume_from = None

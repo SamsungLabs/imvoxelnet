@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from mmdet.core import multi_apply
+from mmdet.core import multi_apply, reduce_mean
 from mmdet.models.builder import HEADS, build_loss
 from mmcv.cnn import  bias_init_with_prob, normal_init
 
@@ -40,34 +40,31 @@ class VoxelFCOS3DHead(nn.Module):
         self._init_layers()
 
     def _init_layers(self):
-        self.centerness_convs = nn.ModuleList([
-            nn.Conv3d(in_channels, 1, 3, padding=1)
-            for in_channels in self.in_channels
-        ])
-        self.reg_convs = nn.ModuleList([
-            nn.Conv3d(in_channels, 6, 3, padding=1)
-            for in_channels in self.in_channels
-        ])
-        self.cls_convs = nn.ModuleList([
-            nn.Conv3d(in_channels, self.n_classes, 3, padding=1)
-            for in_channels in self.in_channels
-        ])
+        # todo: add scales from FCOSHead
+        self.centerness_convs = nn.Sequential(
+            nn.Conv3d(self.in_channels, 3, 3, padding=1)
+        )
+        self.reg_convs = nn.Sequential(
+            nn.Conv3d(self.in_channels, 6, 3, padding=1)
+        )
+        self.cls_convs = nn.Sequential(
+            nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
+        )
 
     # Follow AnchorFreeHead.init_weights
     def init_weights(self):
-        for i in range(len(self.in_channels)):
-            normal_init(self.centerness_convs[i], std=.01)
-            normal_init(self.reg_convs[i], std=.01)
-            normal_init(self.cls_convs[i], std=.01, bias=bias_init_with_prob(.01))
+        normal_init(self.centerness_convs[0], std=.01)
+        normal_init(self.reg_convs[0], std=.01)
+        normal_init(self.cls_convs[0], std=.01, bias=bias_init_with_prob(.01))
 
     def forward(self, x):
-        return multi_apply(self.forward_single, x, range(3))
+        return multi_apply(self.forward_single, x)
 
-    def forward_single(self, x, i):
+    def forward_single(self, x):
         return (
-            self.centerness_convs[i](x),
-            torch.exp(self.reg_convs[i](x)),
-            self.cls_convs[i](x)
+            self.centerness_convs(x),
+            torch.exp(self.reg_convs(x)),
+            self.cls_convs(x)
         )
 
     def forward_train(self, x, img_metas, gt_bboxes, gt_labels):
@@ -146,8 +143,8 @@ class VoxelFCOS3DHead(nn.Module):
         mlvl_points = self.get_points(
             featmap_sizes=featmap_sizes,
             voxel_size=self.train_cfg['voxel_size'],
-            origins=img_meta['origin'],
-            device=centernesses[0].device
+            origin=img_meta['lidar2img']['origin'],
+            device=gt_bboxes.device
         )
         labels, bbox_targets = self.get_targets(mlvl_points, gt_bboxes, gt_labels)
         flatten_cls_scores = [cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes)
@@ -159,12 +156,13 @@ class VoxelFCOS3DHead(nn.Module):
         flatten_cls_scores = torch.cat(flatten_cls_scores)
         flatten_bbox_preds = torch.cat(flatten_bbox_preds)
         flatten_centerness = torch.cat(flatten_centerness)
-        flatten_labels = torch.cat(labels)
-        flatten_bbox_targets = torch.cat(bbox_targets)
+        flatten_labels = labels.to(centernesses[0].device)
+        flatten_bbox_targets = bbox_targets.to(centernesses[0].device)
         flatten_points = torch.cat(mlvl_points)
 
         # skip background
-        pos_inds = (flatten_labels < self.n_classes).nonzero().reshape(-1)
+        pos_inds = torch.nonzero(flatten_labels < self.n_classes).reshape(-1)
+        # todo: fix num_pos from latest FCOSHead
         loss_cls = self.loss_cls(
             flatten_cls_scores, flatten_labels,
             avg_factor=len(pos_inds) + 1)  # avoid dividing by 0
@@ -174,7 +172,7 @@ class VoxelFCOS3DHead(nn.Module):
         if len(pos_inds) > 0:
             pos_bbox_targets = flatten_bbox_targets[pos_inds]
             pos_centerness_targets = self.centerness_target(pos_bbox_targets)
-            pos_points = flatten_points[pos_inds]
+            pos_points = flatten_points[pos_inds].to(pos_bbox_preds.device)
             pos_decoded_bbox_preds = distance2bbox3d(pos_points, pos_bbox_preds)
             pos_decoded_target_preds = distance2bbox3d(pos_points, pos_bbox_targets)
             # centerness weighted iou loss
@@ -189,23 +187,21 @@ class VoxelFCOS3DHead(nn.Module):
             loss_centerness = pos_centerness.sum()
         return loss_centerness, loss_bbox, loss_cls
 
-    def get_points(self, featmap_sizes, voxel_size, origins, device):
+    def get_points(self, featmap_sizes, voxel_size, origin, device):
         mlvl_points = []
         for featmap_size in featmap_sizes:
-            base_points = coordinates(featmap_size, device)
-            points = []
-            for origin in origins:
-                new_origin = get_origin(featmap_size, voxel_size, origin)
-                points.append(base_points + torch.tensor(new_origin, device=device))
-            mlvl_points.append(torch.stack(points))
+            base_points = coordinates(featmap_size, device).permute(1, 0)
+            new_origin = get_origin(featmap_size, voxel_size, origin)
+            points = base_points * voxel_size + torch.tensor(new_origin.reshape(1, 3), device=device)
+            mlvl_points.append(points)
         return mlvl_points
 
     def get_targets(self, points, gt_bboxes, gt_labels):
         assert len(points) == len(self.regress_ranges)
         # expand regress ranges to align with points
         expanded_regress_ranges = [
-            points[i].new_tensor(self.regress_ranges[i])[None].expand_as(
-                points[i]) for i in range(len(self.in_channels))
+            points[i].new_tensor(self.regress_ranges[i]).expand(len(points[i]), 2)
+            for i in range(len(points))
         ]
         # concat all levels points and regress ranges
         regress_ranges = torch.cat(expanded_regress_ranges, dim=0)
@@ -215,9 +211,10 @@ class VoxelFCOS3DHead(nn.Module):
         n_points = len(points)
         n_boxes = len(gt_bboxes)
         volumes = gt_bboxes.volume.to(points.device)
-        volumes = volumes[None].expand(n_points, n_boxes)
+        volumes = volumes.expand(n_points, n_boxes).contiguous()
         regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
-        gt_bboxes = gt_bboxes[None].expand(n_points, n_boxes, 7)
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.dims), dim=1)
+        gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 6)
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
         xs = xs[:, None].expand(n_points, n_boxes)
         ys = ys[:, None].expand(n_points, n_boxes)
@@ -247,7 +244,7 @@ class VoxelFCOS3DHead(nn.Module):
         min_area, min_area_inds = volumes.min(dim=1)
 
         labels = gt_labels[min_area_inds]
-        labels[min_area == INF] = self.num_classes  # set as BG
+        labels[min_area == INF] = self.n_classes  # set as BG
         bbox_targets = bbox_targets[range(n_points), min_area_inds]
 
         return labels, bbox_targets
