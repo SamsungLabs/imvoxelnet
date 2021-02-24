@@ -44,13 +44,13 @@ class AtlasDetector(BaseDetector):
             origin = torch.tensor(get_origin(
                 n_voxels=self.train_cfg['n_voxels'],
                 voxel_size=self.train_cfg['voxel_size'],
-                origin=img_meta['origin']))
+                origin=img_meta['lidar2img']['origin']))
             img_volume, img_valid = backproject(
                 voxel_dim=self.train_cfg['n_voxels'],
                 voxel_size=self.train_cfg['voxel_size'],
                 origin=origin.reshape(1, 3).to(x.device),
                 projection=projection.to(x.device),
-                features=x
+                features=feature
             )
             volume.append(img_volume)
             valid.append(img_valid)
@@ -85,7 +85,7 @@ class AtlasDetector(BaseDetector):
     @staticmethod
     def _compute_projection(img_meta, shape):
         projection = []
-        intrinsic = np.copy(img_meta['intrinsic'][:3, :3])
+        intrinsic = np.copy(img_meta['lidar2img']['intrinsic'][:3, :3])
         intrinsic[0, :] /= img_meta['ori_shape'][1] / shape[1]
         intrinsic[1, :] /= img_meta['ori_shape'][0] / shape[0]
         for extrinsic in img_meta['lidar2img']['extrinsic']:
@@ -102,7 +102,7 @@ def get_origin(n_voxels, voxel_size, origin):
     Returns:
         np.array: of 3 floats
     """
-    return origin - np.array(n_voxels) / 2. * voxel_size
+    return origin - np.array(n_voxels, dtype=np.float32) / 2. * voxel_size
 
 
 # copy from https://github.com/magicleap/Atlas/blob/master/atlas/tsdf.py

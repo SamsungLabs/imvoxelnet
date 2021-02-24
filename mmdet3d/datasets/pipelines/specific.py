@@ -34,7 +34,7 @@ class ScanNetMultiViewPipeline:
 
     def __call__(self, results):
         imgs = []
-        lidar2imgs = []
+        extrinsics = []
         ids = np.arange(len(results['img_info']))
         replace = True if self.n_images > len(ids) else False
         ids = np.random.choice(ids, self.n_images, replace=replace)
@@ -44,11 +44,10 @@ class ScanNetMultiViewPipeline:
                 _results[key] = results[key][i]
             _results = self.transforms(_results)
             imgs.append(_results['img'])
-            lidar2imgs.append(results['lidar2img'][i])
-            if i == 0:
-                for key in _results.keys():
-                    if key not in ['img', 'lidar2img']:
-                        results[key] = _results[key]
+            extrinsics.append(results['lidar2img']['extrinsic'][i])
+        for key in _results.keys():
+            if key not in ['img', 'lidar2img', 'img_prefix', 'img_info']:
+                results[key] = _results[key]
         results['img'] = imgs
-        results['lidar2img'] = lidar2imgs
+        results['lidar2img']['extrinsic'] = extrinsics
         return results
