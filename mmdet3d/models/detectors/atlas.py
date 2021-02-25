@@ -3,6 +3,8 @@ import numpy as np
 from mmdet.models import DETECTORS, build_backbone, build_head, build_neck
 from mmdet.models.detectors import BaseDetector
 
+from mmdet3d.core import bbox3d2result
+
 
 @DETECTORS.register_module()
 class AtlasDetector(BaseDetector):
@@ -60,7 +62,7 @@ class AtlasDetector(BaseDetector):
         valid = valid.sum(dim=1)
         x = volume / valid
         x = x.transpose(0, 1)
-        x[:, valid.squeeze(1) == 0] = .0
+        x[:, valid[:, 0] == 0] = .0
         x = x.transpose(0, 1)
 
         x = self.neck_3d(x)
@@ -77,7 +79,41 @@ class AtlasDetector(BaseDetector):
         return self.simple_test(img, img_metas)
 
     def simple_test(self, img, img_metas):
-        pass  # todo: ?
+        assert len(img) == len(img_metas) == 1
+        projection = self._compute_projection(img_metas[0], img.shape[-2:]).to(img.device)
+
+        volume, valid = None, None
+        for i in range(img.shape[1]):
+            x = self.extract_feat(img[:, i, ...])
+            origin = torch.tensor(get_origin(
+                n_voxels=self.test_cfg['n_voxels'],
+                voxel_size=self.test_cfg['voxel_size'],
+                origin=img_metas[0]['lidar2img']['origin']))
+            img_volume, img_valid = backproject(
+                voxel_dim=self.train_cfg['n_voxels'],
+                voxel_size=self.train_cfg['voxel_size'],
+                origin=origin.reshape(1, 3).to(x.device),
+                projection=projection[i][None, ...],
+                features=x
+            )
+            if volume is None:
+                volume = img_volume
+                valid = img_valid
+            else:
+                volume += img_volume
+                valid += img_valid
+        x = volume / valid
+        x[0, :, valid[0, 0] == 0] = .0
+
+        x = self.neck_3d(x)
+        x = self.bbox_head(x)
+        bbox_list = self.bbox_head.get_bboxes(*x, img_metas)
+        bbox_results = [
+            bbox3d2result(det_bboxes, det_scores, det_labels)
+            for det_bboxes, det_scores, det_labels in bbox_list
+        ]
+        return bbox_results
+
 
     def aug_test(self, imgs, img_metas):
         pass
