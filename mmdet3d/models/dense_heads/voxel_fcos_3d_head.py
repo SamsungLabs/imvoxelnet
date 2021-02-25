@@ -2,9 +2,10 @@ import torch
 from torch import nn
 from mmdet.core import multi_apply, reduce_mean
 from mmdet.models.builder import HEADS, build_loss
-from mmcv.cnn import  bias_init_with_prob, normal_init
+from mmcv.cnn import Scale, bias_init_with_prob, normal_init
 
 from mmdet3d.models.detectors.atlas import coordinates, get_origin
+from mmdet3d.core.post_processing import aligned_3d_nms
 
 INF = 1e8
 
@@ -40,9 +41,8 @@ class VoxelFCOS3DHead(nn.Module):
         self._init_layers()
 
     def _init_layers(self):
-        # todo: add scales from FCOSHead
         self.centerness_convs = nn.Sequential(
-            nn.Conv3d(self.in_channels, 3, 3, padding=1)
+            nn.Conv3d(self.in_channels, 1, 3, padding=1)
         )
         self.reg_convs = nn.Sequential(
             nn.Conv3d(self.in_channels, 6, 3, padding=1)
@@ -50,6 +50,7 @@ class VoxelFCOS3DHead(nn.Module):
         self.cls_convs = nn.Sequential(
             nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
         )
+        self.scales = nn.ModuleList([Scale(1.0) for _ in self.regress_ranges])
 
     # Follow AnchorFreeHead.init_weights
     def init_weights(self):
@@ -58,12 +59,12 @@ class VoxelFCOS3DHead(nn.Module):
         normal_init(self.cls_convs[0], std=.01, bias=bias_init_with_prob(.01))
 
     def forward(self, x):
-        return multi_apply(self.forward_single, x)
+        return multi_apply(self.forward_single, x, self.scales)
 
-    def forward_single(self, x):
+    def forward_single(self, x, scale):
         return (
             self.centerness_convs(x),
-            torch.exp(self.reg_convs(x)),
+            torch.exp(scale(self.reg_convs(x))),
             self.cls_convs(x)
         )
 
@@ -143,7 +144,7 @@ class VoxelFCOS3DHead(nn.Module):
         mlvl_points = self.get_points(
             featmap_sizes=featmap_sizes,
             voxel_size=self.train_cfg['voxel_size'],
-            origin=img_meta['lidar2img']['origin'],
+            origin=img_meta['lidar2img']['origin'],  # todo: augment origin
             device=gt_bboxes.device
         )
         labels, bbox_targets = self.get_targets(mlvl_points, gt_bboxes, gt_labels)
@@ -187,6 +188,7 @@ class VoxelFCOS3DHead(nn.Module):
             loss_centerness = pos_centerness.sum()
         return loss_centerness, loss_bbox, loss_cls
 
+    @torch.no_grad()  # todo: does it help?
     def get_points(self, featmap_sizes, voxel_size, origin, device):
         mlvl_points = []
         for featmap_size in featmap_sizes:
@@ -196,6 +198,7 @@ class VoxelFCOS3DHead(nn.Module):
             mlvl_points.append(points)
         return mlvl_points
 
+    @torch.no_grad()  # todo: does it help?
     def get_targets(self, points, gt_bboxes, gt_labels):
         assert len(points) == len(self.regress_ranges)
         # expand regress ranges to align with points
@@ -266,8 +269,91 @@ class VoxelFCOS3DHead(nn.Module):
                              z_dims.min(dim=-1)[0] / z_dims.max(dim=-1)[0]
         return torch.sqrt(centerness_targets)
 
-    def get_bboxes(self):
-        pass  # todo: ?
+    def get_bboxes(self,
+                   centernesses,
+                   bbox_preds,
+                   cls_scores,
+                   img_metas):
+        assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) \
+               == len(img_metas)
+        n_levels = len(centernesses)
+        result_list = []
+        # todo: does detach help?
+        for img_id in range(len(img_metas)):
+            centerness_list = [
+                centernesses[i][img_id].detach() for i in range(n_levels)
+            ]
+            bbox_pred_list = [
+                bbox_preds[i][img_id].detach() for i in range(n_levels)
+            ]
+            cls_score_list = [
+                cls_scores[i][img_id].detach() for i in range(n_levels)
+            ]
+            det_bboxes_3d = self._get_bboxes_single(
+                centerness_list, bbox_pred_list, cls_score_list, img_metas[img_id]
+            )
+            result_list.append(det_bboxes_3d)
+        return result_list
+
+    def _get_bboxes_single(self,
+                           centernesses,
+                           bbox_preds,
+                           cls_scores,
+                           img_meta):
+        featmap_sizes = [featmap.size()[-3:] for featmap in centernesses]
+        mlvl_points = self.get_points(
+            featmap_sizes=featmap_sizes,
+            voxel_size=self.test_cfg['voxel_size'],
+            origin=img_meta['lidar2img']['origin'],
+            device=centernesses[0].device
+        )
+        mlvl_bboxes, mlvl_scores, mlvl_labels = [], [], []
+        for centerness, bbox_pred, cls_score, points in zip(
+            centernesses, bbox_preds, cls_scores, mlvl_points
+        ):
+            print(centerness.shape, cls_score.shape)
+            centerness = centerness.permute(1, 2, 3, 0).reshape(-1).sigmoid()
+            bbox_pred = bbox_pred.permute(1, 2, 3, 0).reshape(-1, 6)
+            scores = cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes).sigmoid()
+            scores = scores * centerness[:, None]
+            scores, labels = scores.max(dim=1)
+
+            score_thr = self.test_cfg['score_thr']
+            if score_thr > .0:
+                ids = scores > score_thr
+                bbox_pred = bbox_pred[ids, :]
+                scores = scores[ids]
+                labels = labels[ids]
+                points = points[ids, :]
+
+            nms_pre = self.test_cfg['nms_pre']
+            if len(scores) > nms_pre > 0:
+                _, ids = scores.topk(nms_pre)
+                bbox_pred = bbox_pred[ids, :]
+                scores = scores[ids]
+                labels = labels[ids]
+                points = points[ids, :]
+
+            bboxes = distance2bbox3d(points, bbox_pred)
+            mlvl_bboxes.append(bboxes)
+            mlvl_scores.append(scores)
+            mlvl_labels.append(labels)
+
+        bboxes = torch.cat(mlvl_bboxes)
+        scores = torch.cat(mlvl_scores)
+        labels = torch.cat(mlvl_labels)
+        ids = aligned_3d_nms(bboxes, scores, labels, self.test_cfg.iou_thr)
+        bboxes = bboxes[ids]
+        bboxes = torch.stack((
+            (bboxes[:, 0] + bboxes[:, 3]) / 2.,
+            (bboxes[:, 1] + bboxes[:, 4]) / 2.,
+            (bboxes[:, 2] + bboxes[:, 5]) / 2.,
+            bboxes[:, 3] - bboxes[:, 0],
+            bboxes[:, 4] - bboxes[:, 1],
+            bboxes[:, 5] - bboxes[:, 2]
+        ), dim=1)
+        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5), with_yaw=False)
+        return bboxes, scores[ids], labels[ids]
 
 
 def distance2bbox3d(points, distance):

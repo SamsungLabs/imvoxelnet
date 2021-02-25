@@ -32,7 +32,12 @@ model = dict(
 )
 train_cfg = dict(n_voxels=(160, 160, 64), voxel_size=.04)
 # todo: increase n_voxels for test and val
-test_cfg = dict(n_voxels=(160, 160, 64), voxel_size=.04)
+test_cfg = dict(
+    n_voxels=(160, 160, 64),
+    voxel_size=.04,
+    nms_pre=1000,
+    iou_thr=.15,
+    score_thr=.1)
 img_norm_cfg = dict(mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
 
 dataset_type = 'ScanNetMultiViewDataset'
@@ -50,13 +55,25 @@ train_pipeline = [
         transforms=[
             dict(type='LoadImageFromFile'),
             # dict(type='Pad', size=(972, 1296)),  # todo: ?
-            dict(type='Resize', img_scale=(640, 480), keep_ratio=False),
+            dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg)
         ]),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
-test_pipeline = None  # todo: ?
+test_pipeline = [
+    dict(
+        type='ScanNetMultiViewPipeline',
+        n_images=50,
+        transforms=[
+            dict(type='LoadImageFromFile'),
+            # dict(type='Pad', size=(972, 1296)),  # todo: ?
+            dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
+            dict(type='Normalize', **img_norm_cfg)
+        ]),
+    dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
+    dict(type='Collect3D', keys=['img'])
+]
 data = dict(
     samples_per_gpu=1,
     workers_per_gpu=1,
@@ -108,7 +125,7 @@ log_config = dict(
     ])
 evaluation = dict(interval=1)
 dist_params = dict(backend='nccl')
-find_unused_parameters = True  # todo: fix it
+find_unused_parameters = True  # todo: fix number of FPN outputs
 log_level = 'INFO'
 load_from = None
 resume_from = None
