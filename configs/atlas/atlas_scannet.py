@@ -19,7 +19,7 @@ model = dict(
     neck_3d=dict(
         type='AtlasNeck',
         channels=[32, 64, 128, 256],
-        out_channels=32,
+        out_channels=256,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False
@@ -27,17 +27,17 @@ model = dict(
     bbox_head=dict(
         type='VoxelFCOS3DHead',
         n_classes=18,
-        in_channels=32
+        in_channels=256,
     )
 )
-train_cfg = dict(n_voxels=(160, 160, 64), voxel_size=.04)
+train_cfg = dict(n_voxels=(80, 80, 32), voxel_size=.08)
 # todo: increase n_voxels for test and val
 test_cfg = dict(
-    n_voxels=(160, 160, 64),
-    voxel_size=.04,
+    n_voxels=(80, 80, 32),
+    voxel_size=.08,
     nms_pre=1000,
     iou_thr=.15,
-    score_thr=.1)
+    score_thr=.05)
 img_norm_cfg = dict(mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
 
 dataset_type = 'ScanNetMultiViewDataset'
@@ -51,10 +51,9 @@ train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=7,
+        n_images=25,
         transforms=[
             dict(type='LoadImageFromFile'),
-            # dict(type='Pad', size=(972, 1296)),  # todo: ?
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg)
         ]),
@@ -67,7 +66,6 @@ test_pipeline = [
         n_images=50,
         transforms=[
             dict(type='LoadImageFromFile'),
-            # dict(type='Pad', size=(972, 1296)),  # todo: ?
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg)
         ]),
@@ -108,7 +106,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001,
+    lr=0.001,  # todo: ?
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
@@ -130,4 +128,3 @@ log_level = 'INFO'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
-
