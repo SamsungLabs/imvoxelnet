@@ -80,28 +80,24 @@ class AtlasDetector(BaseDetector):
 
     def simple_test(self, img, img_metas):
         assert len(img) == len(img_metas) == 1
-        projection = self._compute_projection(img_metas[0], img.shape[-2:]).to(img.device)
-
-        volume, valid = None, None
+        volume, valid, projection = .0, 0, None
         for i in range(img.shape[1]):
             x = self.extract_feat(img[:, i, ...])
+            if projection is None:
+                projection = self._compute_projection(img_metas[0], x.shape[-2:]).to(x.device)
             origin = torch.tensor(get_origin(
                 n_voxels=self.test_cfg['n_voxels'],
                 voxel_size=self.test_cfg['voxel_size'],
                 origin=img_metas[0]['lidar2img']['origin']))
             img_volume, img_valid = backproject(
-                voxel_dim=self.train_cfg['n_voxels'],
-                voxel_size=self.train_cfg['voxel_size'],
+                voxel_dim=self.test_cfg['n_voxels'],
+                voxel_size=self.test_cfg['voxel_size'],
                 origin=origin.reshape(1, 3).to(x.device),
                 projection=projection[i][None, ...],
                 features=x
             )
-            if volume is None:
-                volume = img_volume
-                valid = img_valid
-            else:
-                volume += img_volume
-                valid += img_valid
+            volume += img_volume
+            valid += img_valid
         x = volume / valid
         x[0, :, valid[0, 0] == 0] = .0
 

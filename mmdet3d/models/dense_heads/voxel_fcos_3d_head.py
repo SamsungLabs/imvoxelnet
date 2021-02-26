@@ -15,7 +15,7 @@ class VoxelFCOS3DHead(nn.Module):
     def __init__(self,
                  n_classes,
                  in_channels,
-                 regress_ranges=((-1., 1.), (1., 2.), (2., INF)),
+                 regress_ranges=((-1., .75), (.75, 1.5), (1.5, INF)),
                  loss_centerness=dict(
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
@@ -144,7 +144,7 @@ class VoxelFCOS3DHead(nn.Module):
         mlvl_points = self.get_points(
             featmap_sizes=featmap_sizes,
             voxel_size=self.train_cfg['voxel_size'],
-            origin=img_meta['lidar2img']['origin'],  # todo: augment origin
+            origin=img_meta['lidar2img']['origin'],
             device=gt_bboxes.device
         )
         labels, bbox_targets = self.get_targets(mlvl_points, gt_bboxes, gt_labels)
@@ -163,7 +163,6 @@ class VoxelFCOS3DHead(nn.Module):
 
         # skip background
         pos_inds = torch.nonzero(flatten_labels < self.n_classes).reshape(-1)
-        # todo: fix num_pos from latest FCOSHead
         loss_cls = self.loss_cls(
             flatten_cls_scores, flatten_labels,
             avg_factor=len(pos_inds) + 1)  # avoid dividing by 0
@@ -191,10 +190,12 @@ class VoxelFCOS3DHead(nn.Module):
     @torch.no_grad()  # todo: does it help?
     def get_points(self, featmap_sizes, voxel_size, origin, device):
         mlvl_points = []
-        for featmap_size in featmap_sizes:
+        for i, featmap_size in enumerate(featmap_sizes):
+            scale_voxel_size = voxel_size * (2 ** i)
             base_points = coordinates(featmap_size, device).permute(1, 0)
-            new_origin = get_origin(featmap_size, voxel_size, origin)
-            points = base_points * voxel_size + torch.tensor(new_origin.reshape(1, 3), device=device)
+            new_origin = get_origin(featmap_size, scale_voxel_size, origin)
+            new_origin = torch.tensor(new_origin.reshape(1, 3), device=device)
+            points = base_points * scale_voxel_size + new_origin
             mlvl_points.append(points)
         return mlvl_points
 
@@ -311,7 +312,6 @@ class VoxelFCOS3DHead(nn.Module):
         for centerness, bbox_pred, cls_score, points in zip(
             centernesses, bbox_preds, cls_scores, mlvl_points
         ):
-            print(centerness.shape, cls_score.shape)
             centerness = centerness.permute(1, 2, 3, 0).reshape(-1).sigmoid()
             bbox_pred = bbox_pred.permute(1, 2, 3, 0).reshape(-1, 6)
             scores = cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes).sigmoid()
@@ -352,7 +352,7 @@ class VoxelFCOS3DHead(nn.Module):
             bboxes[:, 4] - bboxes[:, 1],
             bboxes[:, 5] - bboxes[:, 2]
         ), dim=1)
-        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5), with_yaw=False)
+        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5), box_dim=6, with_yaw=False)
         return bboxes, scores[ids], labels[ids]
 
 
