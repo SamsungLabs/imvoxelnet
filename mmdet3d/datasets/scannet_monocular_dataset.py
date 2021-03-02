@@ -21,7 +21,10 @@ class ScanNetMultiViewDataset(Custom3DDataset):
             input_dict['img_info'].append(dict(filename=img_filename))
             input_dict['lidar2img'].append(info['extrinsic'][i].astype(np.float32))
         input_dict = dict(input_dict)
-        origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
+        if info['annos']['gt_num'] != 0:
+            origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
+        else:
+            origin = np.array([0, 0, 0])
         input_dict['lidar2img'] = dict(
             extrinsic=input_dict['lidar2img'],
             intrinsic=info['intrinsic'].astype(np.float32),
