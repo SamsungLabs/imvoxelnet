@@ -1,6 +1,6 @@
 model = dict(
     type='AtlasDetector',
-    pretrained='open-mmlab://detectron/resnet50_caffe',
+    pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',
         depth=50,
@@ -18,7 +18,7 @@ model = dict(
         num_outs=4),
     neck_3d=dict(
         type='AtlasNeck',
-        channels=[64, 64, 64, 64],
+        channels=[64, 128, 256, 512],
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
@@ -39,7 +39,7 @@ test_cfg = dict(
     nms_pre=1000,
     iou_thr=.15,
     score_thr=.05)
-img_norm_cfg = dict(mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
+img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'ScanNetMultiViewDataset'
 data_root = 'data/scannet/'
@@ -52,7 +52,7 @@ train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=20,
+        n_images=50,
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
@@ -78,7 +78,7 @@ data = dict(
     workers_per_gpu=1,
     train=dict(
         type='RepeatDataset',
-        times=3,  # todo: <-
+        times=1,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
