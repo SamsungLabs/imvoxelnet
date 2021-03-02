@@ -14,12 +14,12 @@ model = dict(
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
-        out_channels=32,
+        out_channels=64,
         num_outs=4),
     neck_3d=dict(
         type='AtlasNeck',
-        channels=[32, 64, 128, 256],
-        out_channels=256,
+        channels=[64, 64, 64, 64],
+        out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False
@@ -27,7 +27,8 @@ model = dict(
     bbox_head=dict(
         type='VoxelFCOS3DHead',
         n_classes=18,
-        in_channels=256,
+        in_channels=64,
+        n_convs=0
     )
 )
 train_cfg = dict(n_voxels=(80, 80, 32), voxel_size=.08)
@@ -51,7 +52,7 @@ train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=25,
+        n_images=20,
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
@@ -77,7 +78,7 @@ data = dict(
     workers_per_gpu=1,
     train=dict(
         type='RepeatDataset',
-        times=1,
+        times=3,  # todo: <-
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
@@ -106,7 +107,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.001,  # todo: ?
+    lr=0.0001,  # todo: ?
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
@@ -116,7 +117,7 @@ total_epochs = 12
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 log_config = dict(
-    interval=1,  # todo: 50
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')

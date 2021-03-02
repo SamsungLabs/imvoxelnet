@@ -17,9 +17,8 @@ class AtlasNeck(nn.Module):
             nn.Sequential(
                 nn.Conv3d(in_channels, out_channels, 3, padding=1),
                 nn.BatchNorm3d(out_channels),
-                nn.ReLU(inplace=True)
-            )
-         for in_channels in channels])
+                nn.ReLU()
+            ) for in_channels in channels])
 
     @auto_fp16()
     def forward(self, x):

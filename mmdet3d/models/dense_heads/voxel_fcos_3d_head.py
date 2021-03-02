@@ -15,6 +15,7 @@ class VoxelFCOS3DHead(nn.Module):
     def __init__(self,
                  n_classes,
                  in_channels,
+                 n_convs,
                  regress_ranges=((-1., .75), (.75, 1.5), (1.5, INF)),
                  loss_centerness=dict(
                      type='CrossEntropyLoss',
@@ -38,34 +39,50 @@ class VoxelFCOS3DHead(nn.Module):
         self.loss_cls = build_loss(loss_cls)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self._init_layers()
+        self._init_layers(n_convs)
 
-    def _init_layers(self):
-        self.centerness_convs = nn.Sequential(
-            nn.Conv3d(self.in_channels, 1, 3, padding=1)
-        )
-        self.reg_convs = nn.Sequential(
-            nn.Conv3d(self.in_channels, 6, 3, padding=1)
-        )
-        self.cls_convs = nn.Sequential(
-            nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
-        )
-        self.scales = nn.ModuleList([Scale(1.0) for _ in self.regress_ranges])
+    def _init_layers(self, n_convs):
+        self.reg_convs = nn.Sequential(*[
+            nn.Sequential(
+                nn.Conv3d(self.in_channels, self.in_channels, 3, padding=1, bias=False),
+                nn.BatchNorm3d(self.in_channels),
+                nn.ReLU()
+            ) for _ in range(n_convs)])
+        self.cls_convs = nn.Sequential(*[
+            nn.Sequential(
+                nn.Conv3d(self.in_channels, self.in_channels, 3, padding=1, bias=False),
+                nn.BatchNorm3d(self.in_channels),
+                nn.ReLU()
+            ) for _ in range(n_convs)])
+
+        self.centerness_conv = nn.Conv3d(self.in_channels, 1, 3, padding=1, bias=False)
+        self.reg_conv = nn.Conv3d(self.in_channels, 6, 3, padding=1, bias=False)
+        self.cls_conv = nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
+        self.scales = nn.ModuleList([Scale(1.) for _ in self.regress_ranges])
 
     # Follow AnchorFreeHead.init_weights
     def init_weights(self):
-        normal_init(self.centerness_convs[0], std=.01)
-        normal_init(self.reg_convs[0], std=.01)
-        normal_init(self.cls_convs[0], std=.01, bias=bias_init_with_prob(.01))
+        for layer in self.reg_convs.modules():
+            if isinstance(layer, nn.Conv3d):
+                normal_init(layer, std=.01)
+        for layer in self.cls_convs.modules():
+            if isinstance(layer, nn.Conv3d):
+                normal_init(layer, std=.01)
+
+        normal_init(self.centerness_conv, std=.01)
+        normal_init(self.reg_conv, std=.01)
+        normal_init(self.cls_conv, std=.01, bias=bias_init_with_prob(.01))
 
     def forward(self, x):
         return multi_apply(self.forward_single, x, self.scales)
 
     def forward_single(self, x, scale):
+        reg = self.reg_convs(x)
+        cls = self.cls_convs(x)
         return (
-            self.centerness_convs(x),
-            torch.exp(scale(self.reg_convs(x))),
-            self.cls_convs(x)
+            self.centerness_conv(reg),
+            torch.exp(scale(self.reg_conv(reg))),
+            self.cls_conv(cls)
         )
 
     def forward_train(self, x, img_metas, gt_bboxes, gt_labels):
