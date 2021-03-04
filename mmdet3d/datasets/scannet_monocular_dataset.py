@@ -19,7 +19,8 @@ class ScanNetMultiViewDataset(Custom3DDataset):
             img_filename = osp.join(self.data_root, info['image_paths'][i])
             input_dict['img_prefix'].append(None)
             input_dict['img_info'].append(dict(filename=img_filename))
-            input_dict['lidar2img'].append(info['extrinsic'][i].astype(np.float32))
+            extrinsic = np.linalg.inv(info['axis_align_matrix'] @ info['pose'][i])
+            input_dict['lidar2img'].append(extrinsic.astype(np.float32))
         input_dict = dict(input_dict)
         if info['annos']['gt_num'] != 0:
             origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)

@@ -132,16 +132,25 @@ class ScanNetData(object):
 
 class ScanNetMonocularData(ScanNetData):
     def process_single_scene(self, sample_idx, has_label):
-        info = dict(image_paths=[], extrinsic=[])
+        info = dict(image_paths=[], pose=[])
+
+        with open(os.path.join(self.root_dir, 'txts', f'{sample_idx}.txt')) as file:
+            for line in file.readlines():
+                splits = line.split(' = ')
+                if splits[0] == 'axisAlignment':
+                    axis_align_matrix = np.fromstring(splits[1], sep=' ').reshape(4, 4)
+                    break
+        info['axis_align_matrix'] = axis_align_matrix
+
         frame_sub_path = f'sens_reader_100/scans/{sample_idx}/out'
         frame_path = osp.join(self.root_dir, frame_sub_path)
         base_file_names = {x.split('.')[0] for x in os.listdir(frame_path)}
         base_file_names.remove('_info')
         for base_file_name in base_file_names:
-            extrinsic = np.loadtxt(osp.join(frame_path, f'{base_file_name}.pose.txt'))
-            if np.all(np.isfinite(extrinsic)):
+            pose = np.loadtxt(osp.join(frame_path, f'{base_file_name}.pose.txt'))
+            if np.all(np.isfinite(pose)):
                 info['image_paths'].append(osp.join(frame_sub_path, f'{base_file_name}.color.jpg'))
-                info['extrinsic'].append(extrinsic)
+                info['pose'].append(pose)
 
         with open(osp.join(frame_path, '_info.txt')) as file:
             splits = file.readlines()[7].split(' = ')
