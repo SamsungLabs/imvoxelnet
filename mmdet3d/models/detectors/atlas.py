@@ -121,7 +121,7 @@ class AtlasDetector(BaseDetector):
         intrinsic[0, :] /= img_meta['ori_shape'][1] / shape[1]
         intrinsic[1, :] /= img_meta['ori_shape'][0] / shape[0]
         for extrinsic in img_meta['lidar2img']['extrinsic']:
-            projection.append(intrinsic @ np.linalg.inv(extrinsic)[:3])
+            projection.append(intrinsic @ extrinsic[:3])
         return torch.tensor(np.stack(projection))
 
 
