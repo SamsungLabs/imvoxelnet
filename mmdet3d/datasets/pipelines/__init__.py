@@ -9,7 +9,7 @@ from .transforms_3d import (BackgroundPointsFilter, GlobalRotScaleTrans,
                             IndoorPointSample, ObjectNoise, ObjectRangeFilter,
                             ObjectSample, PointShuffle, PointsRangeFilter,
                             RandomFlip3D, VoxelBasedPointSampler)
-from .specific import NuScenesMultiViewPipeline, ScanNetMultiViewPipeline
+from .specific import NuScenesMultiViewPipeline, ScanNetMultiViewPipeline, RandomShiftOrigin
 
 __all__ = [
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
@@ -17,6 +17,7 @@ __all__ = [
     'Compose', 'LoadMultiViewImageFromFiles', 'LoadPointsFromFile',
     'DefaultFormatBundle', 'DefaultFormatBundle3D', 'DataBaseSampler',
     'NormalizePointsColor', 'LoadAnnotations3D', 'IndoorPointSample',
-    'PointSegClassMapping', 'MultiScaleFlipAug3D', 'NuScenesMultiViewPipeline', 'ScanNetMultiViewPipeline',
+    'PointSegClassMapping', 'MultiScaleFlipAug3D',
+    'NuScenesMultiViewPipeline', 'ScanNetMultiViewPipeline', 'RandomShiftOrigin',
     'LoadPointsFromMultiSweeps', 'BackgroundPointsFilter', 'VoxelBasedPointSampler'
 ]

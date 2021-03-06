@@ -46,13 +46,13 @@ class VoxelFCOS3DHead(nn.Module):
             nn.Sequential(
                 nn.Conv3d(self.in_channels, self.in_channels, 3, padding=1, bias=False),
                 nn.BatchNorm3d(self.in_channels),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ) for _ in range(n_convs)])
         self.cls_convs = nn.Sequential(*[
             nn.Sequential(
                 nn.Conv3d(self.in_channels, self.in_channels, 3, padding=1, bias=False),
                 nn.BatchNorm3d(self.in_channels),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ) for _ in range(n_convs)])
 
         self.centerness_conv = nn.Conv3d(self.in_channels, 1, 3, padding=1, bias=False)
