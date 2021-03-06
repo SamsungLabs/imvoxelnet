@@ -1,3 +1,3 @@
 import os
 
-os.system('bash tools/dist_train.sh configs/detr3d/detr3d_nuscenes_monocular.py 2')
+os.system('bash tools/dist_train.sh configs/atlas/atlas_scannet.py 2')
