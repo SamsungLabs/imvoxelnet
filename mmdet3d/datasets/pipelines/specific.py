@@ -68,10 +68,10 @@ class ScanNetMultiViewPipeline:
 
 @PIPELINES.register_module()
 class RandomShiftOrigin:
-    def __init__(self, threshold):
-        self.threshold = threshold
+    def __init__(self, std):
+        self.std = std
 
     def __call__(self, results):
-        shift = np.random.uniform(-self.threshold, self.threshold, 3)
+        shift = np.random.normal(.0, self.std, 3)
         results['lidar2img']['origin'] += shift
         return results

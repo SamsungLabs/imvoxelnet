@@ -180,9 +180,9 @@ class VoxelFCOS3DHead(nn.Module):
 
         # skip background
         pos_inds = torch.nonzero(flatten_labels < self.n_classes).reshape(-1)
-        loss_cls = self.loss_cls(
-            flatten_cls_scores, flatten_labels,
-            avg_factor=len(pos_inds) + 1)  # avoid dividing by 0
+        n_pos = torch.tensor(len(pos_inds), dtype=torch.float, device=centernesses[0].device)
+        n_pos = max(reduce_mean(n_pos), 1.)
+        loss_cls = self.loss_cls(flatten_cls_scores, flatten_labels, avg_factor=n_pos)
         pos_bbox_preds = flatten_bbox_preds[pos_inds]
         pos_centerness = flatten_centerness[pos_inds]
 
@@ -198,7 +198,8 @@ class VoxelFCOS3DHead(nn.Module):
                 pos_decoded_target_preds,
                 weight=pos_centerness_targets,
                 avg_factor=pos_centerness_targets.sum())
-            loss_centerness = self.loss_centerness(pos_centerness, pos_centerness_targets)
+            loss_centerness = self.loss_centerness(
+                pos_centerness, pos_centerness_targets, avg_factor=n_pos)
         else:
             loss_bbox = pos_bbox_preds.sum()
             loss_centerness = pos_centerness.sum()
