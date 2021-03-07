@@ -59,7 +59,7 @@ train_pipeline = [
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg)
         ]),
-    dict(type='RandomShiftOrigin', threshold=1.),
+    dict(type='RandomShiftOrigin', std=.1),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
