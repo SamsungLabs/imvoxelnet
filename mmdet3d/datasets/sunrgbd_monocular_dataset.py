@@ -27,20 +27,6 @@ class SUNRGBDMonocularDataset(SUNRGBDDataset):
             test_mode=test_mode)
 
     def get_data_info(self, index):
-        """Get data info according to the given index.
-
-        Args:
-            index (int): Index of the sample data to get.
-
-        Returns:
-            dict: Data information that will be passed to the data \
-                preprocessing pipelines. It includes the following keys:
-
-                - sample_idx (str): Sample index.
-                - pts_filename (str): Filename of point clouds.
-                - file_name (str): Filename of point clouds.
-                - ann_info (dict): Annotation info.
-        """
         info = self.data_infos[index]
         img_filename = osp.join(self.data_root, info['image']['image_path'])
         input_dict = dict(
@@ -88,3 +74,35 @@ class SUNRGBDMonocularDataset(SUNRGBDDataset):
                  show=False,
                  out_dir=None):
         return super().evaluate(results, metric, iou_thr, logger, show, out_dir)
+
+
+@DATASETS.register_module()
+class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
+    def get_data_info(self, index):
+        info = self.data_infos[index]
+        img_filename = osp.join(self.data_root, info['image']['image_path'])
+        matrices = self._get_matrices(index)
+        intrinsic = np.eye(4)
+        intrinsic[:3, :3] = matrices['intrinsic']
+        extrinsic = np.eye(4)
+        extrinsic[:3, :3] = matrices['extrinsic'].T
+        if info['annos']['gt_num'] != 0:
+            origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
+        else:
+            origin = np.array([0, 0, 0])
+        input_dict = dict(
+            img_prefix=[None],
+            img_info=[dict(filename=img_filename)],
+            lidar2img=dict(
+                extrinsic=[extrinsic.astype(np.float32)],
+                intrinsic=intrinsic.astype(np.float32),
+                origin=origin.astype(np.float32)
+            )
+        )
+
+        if not self.test_mode:
+            annos = self.get_ann_info(index)
+            input_dict['ann_info'] = annos
+            if self.filter_empty_gt and len(annos['gt_bboxes_3d']) == 0:
+                return None
+        return input_dict

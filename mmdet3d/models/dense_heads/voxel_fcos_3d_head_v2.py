@@ -6,12 +6,13 @@ from mmcv.cnn import Scale, bias_init_with_prob, normal_init
 
 from mmdet3d.models.detectors.atlas import coordinates, get_origin
 from mmdet3d.core.post_processing import aligned_3d_nms
+from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 
 INF = 1e8
 
 
 @HEADS.register_module()
-class VoxelFCOS3DHead(nn.Module):
+class VoxelFCOS3DHeadV2(nn.Module):
     def __init__(self,
                  n_classes,
                  in_channels,
@@ -21,7 +22,7 @@ class VoxelFCOS3DHead(nn.Module):
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
                      loss_weight=1.0),
-                 loss_bbox=dict(type='AxisAlignedIoULoss', loss_weight=1.0),
+                 loss_bbox=dict(type='IoU3DLoss', loss_weight=1.0),
                  loss_cls=dict(
                      type='FocalLoss',
                      use_sigmoid=True,
@@ -56,7 +57,7 @@ class VoxelFCOS3DHead(nn.Module):
             ) for _ in range(n_convs)])
 
         self.centerness_conv = nn.Conv3d(self.in_channels, 1, 3, padding=1, bias=False)
-        self.reg_conv = nn.Conv3d(self.in_channels, 6, 3, padding=1, bias=False)
+        self.reg_conv = nn.Conv3d(self.in_channels, 8, 3, padding=1, bias=False)
         self.cls_conv = nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
         self.scales = nn.ModuleList([Scale(1.) for _ in self.regress_ranges])
 
@@ -79,9 +80,15 @@ class VoxelFCOS3DHead(nn.Module):
     def forward_single(self, x, scale):
         reg = self.reg_convs(x)
         cls = self.cls_convs(x)
+        reg_final = self.reg_conv(reg)
+        reg_distance = torch.exp(scale(reg_final[:, :6]))
+        reg_angle = torch.atan2(
+            torch.sigmoid((reg_final[:, 6:7])),
+            torch.sigmoid((reg_final[:, 7:8]))
+        )
         return (
             self.centerness_conv(reg),
-            torch.exp(scale(self.reg_conv(reg))),
+            torch.cat((reg_distance, reg_angle), dim=1),
             self.cls_conv(cls)
         )
 
@@ -167,7 +174,7 @@ class VoxelFCOS3DHead(nn.Module):
         labels, bbox_targets = self.get_targets(mlvl_points, gt_bboxes, gt_labels)
         flatten_cls_scores = [cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes)
                               for cls_score in cls_scores]
-        flatten_bbox_preds = [bbox_pred.permute(1, 2, 3, 0).reshape(-1, 6)
+        flatten_bbox_preds = [bbox_pred.permute(1, 2, 3, 0).reshape(-1, 7)
                               for bbox_pred in bbox_preds]
         flatten_centerness = [centerness.permute(1, 2, 3, 0).reshape(-1)
                               for centerness in centernesses]
@@ -190,8 +197,8 @@ class VoxelFCOS3DHead(nn.Module):
             pos_bbox_targets = flatten_bbox_targets[pos_inds]
             pos_centerness_targets = self.centerness_target(pos_bbox_targets)
             pos_points = flatten_points[pos_inds].to(pos_bbox_preds.device)
-            pos_decoded_bbox_preds = distance2bbox3d(pos_points, pos_bbox_preds)
-            pos_decoded_target_preds = distance2bbox3d(pos_points, pos_bbox_targets)
+            pos_decoded_bbox_preds = distance2rotated_bbox3d(pos_points, pos_bbox_preds)
+            pos_decoded_target_preds = distance2rotated_bbox3d(pos_points, pos_bbox_targets)
             # centerness weighted iou loss
             loss_bbox = self.loss_bbox(
                 pos_decoded_bbox_preds,
@@ -235,20 +242,26 @@ class VoxelFCOS3DHead(nn.Module):
         volumes = gt_bboxes.volume.to(points.device)
         volumes = volumes.expand(n_points, n_boxes).contiguous()
         regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
-        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.dims), dim=1)
-        gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 6)
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
+        gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 7)
         xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
         xs = xs[:, None].expand(n_points, n_boxes)
         ys = ys[:, None].expand(n_points, n_boxes)
         zs = zs[:, None].expand(n_points, n_boxes)
 
-        x_min = xs - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
-        x_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - xs
-        y_min = ys - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
-        y_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - ys
-        z_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
-        z_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
-        bbox_targets = torch.stack((x_min, x_max, y_min, y_max, z_min, z_max), -1)
+        distance = torch.sqrt(
+            torch.pow(xs - gt_bboxes[..., 0], 2) +
+            torch.pow(ys - gt_bboxes[..., 1], 2)
+        )
+        dx_min = distance * torch.cos(gt_bboxes[..., 6]) + gt_bboxes[..., 3] / 2
+        dx_max = gt_bboxes[..., 3] / 2 - distance * torch.cos(gt_bboxes[..., 6])
+        dy_min = gt_bboxes[..., 4] / 2 - distance * torch.sin(gt_bboxes[..., 6])
+        dy_max = distance * torch.sin(gt_bboxes[..., 6]) + gt_bboxes[..., 4] / 2
+        dz_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
+        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
+        bbox_targets = torch.stack((
+            dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]
+        ), dim=-1)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
@@ -373,11 +386,16 @@ class VoxelFCOS3DHead(nn.Module):
         return bboxes, scores[ids], labels[ids]
 
 
-def distance2bbox3d(points, distance):
-    x_min = points[:, 0] - distance[:, 0]
-    x_max = points[:, 0] + distance[:, 1]
-    y_min = points[:, 1] - distance[:, 2]
-    y_max = points[:, 1] + distance[:, 3]
-    z_min = points[:, 2] - distance[:, 4]
-    z_max = points[:, 2] + distance[:, 5]
-    return torch.stack([x_min, y_min, z_min, x_max, y_max, z_max], -1)
+def distance2rotated_bbox3d(points, distance):
+    shift = torch.stack((
+        distance[:, 1] - distance[:, 0],
+        distance[:, 3] - distance[:, 2],
+        distance[:, 5] - distance[:, 4]
+    ), dim=-1).view(-1, 1, 3)
+    center = points + rotation_3d_in_axis(shift, -distance[:, 6], axis=2)[:, 0, :]
+    size = torch.stack((
+        (distance[:, 0] + distance[:, 1]) / 2,
+        (distance[:, 2] + distance[:, 3]) / 2,
+        (distance[:, 4] + distance[:, 5]) / 2
+    ), dim=-1)
+    return torch.cat((center, size, distance[:, 6:7]), dim=-1)
