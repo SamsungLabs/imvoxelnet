@@ -14,7 +14,7 @@ from .pipelines import (BackgroundPointsFilter, GlobalRotScaleTrans,
 from .scannet_dataset import ScanNetDataset
 from .scannet_monocular_dataset import ScanNetMultiViewDataset
 from .sunrgbd_dataset import SUNRGBDDataset
-from .sunrgbd_monocular_dataset import SUNRGBDMonocularDataset
+from .sunrgbd_monocular_dataset import SUNRGBDMonocularDataset, SUNRGBDMultiViewDataset
 from .waymo_dataset import WaymoDataset
 
 __all__ = [
@@ -24,7 +24,8 @@ __all__ = [
     'LyftDataset', 'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans', 'PointShuffle',
     'ObjectRangeFilter', 'PointsRangeFilter', 'Collect3D',
     'LoadPointsFromFile', 'NormalizePointsColor', 'IndoorPointSample',
-    'LoadAnnotations3D', 'SUNRGBDDataset', 'SUNRGBDMonocularDataset', 'ScanNetDataset', 'ScanNetMultiViewDataset',
+    'LoadAnnotations3D', 'SUNRGBDDataset', 'SUNRGBDMonocularDataset', 'SUNRGBDMultiViewDataset',
+    'ScanNetDataset', 'ScanNetMultiViewDataset',
     'Custom3DDataset', 'LoadPointsFromMultiSweeps', 'WaymoDataset', 'BackgroundPointsFilter',
     'VoxelBasedPointSampler'
 ]
