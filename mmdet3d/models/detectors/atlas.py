@@ -118,8 +118,12 @@ class AtlasDetector(BaseDetector):
     def _compute_projection(img_meta, shape):
         projection = []
         intrinsic = np.copy(img_meta['lidar2img']['intrinsic'][:3, :3])
-        intrinsic[0, :] /= img_meta['ori_shape'][1] / shape[1]
-        intrinsic[1, :] /= img_meta['ori_shape'][0] / shape[0]
+        # check if only one side is padded
+        assert img_meta['img_shape'][0] == img_meta['pad_shape'][0] or \
+               img_meta['img_shape'][1] == img_meta['pad_shape'][1]
+        dim = 0 if img_meta['img_shape'][0] == img_meta['pad_shape'][0] else 1
+        ratio = img_meta['ori_shape'][dim] / shape[dim]
+        intrinsic[:2] /= ratio
         for extrinsic in img_meta['lidar2img']['extrinsic']:
             projection.append(intrinsic @ extrinsic[:3])
         return torch.tensor(np.stack(projection))
