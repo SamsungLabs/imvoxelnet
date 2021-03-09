@@ -9,7 +9,7 @@ model = dict(
         frozen_stages=1,
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
-        style='pytorch'
+        style='caffe'
     ),
     neck=dict(
         type='FPN',
@@ -57,8 +57,7 @@ train_pipeline = [
             dict(type='LoadImageFromFile'),
             dict(type='RandomFlip'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-            dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size=(480, 640))
+            dict(type='Normalize', **img_norm_cfg)
         ]),
     dict(type='RandomShiftOrigin', std=.1),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
@@ -71,8 +70,7 @@ test_pipeline = [
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-            dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size=(480, 640))
+            dict(type='Normalize', **img_norm_cfg)
         ]),
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])

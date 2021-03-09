@@ -242,13 +242,13 @@ class VoxelFCOS3DHead(nn.Module):
         ys = ys[:, None].expand(n_points, n_boxes)
         zs = zs[:, None].expand(n_points, n_boxes)
 
-        dx_min = xs - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
-        dx_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - xs
-        dy_min = ys - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
-        dy_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - ys
-        dz_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
-        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
-        bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max), dim=-1)
+        x_min = xs - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
+        x_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - xs
+        y_min = ys - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
+        y_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - ys
+        z_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
+        z_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
+        bbox_targets = torch.stack((x_min, x_max, y_min, y_max, z_min, z_max), -1)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
