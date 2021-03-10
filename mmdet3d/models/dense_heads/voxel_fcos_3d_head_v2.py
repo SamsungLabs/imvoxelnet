@@ -5,7 +5,7 @@ from mmdet.models.builder import HEADS, build_loss
 from mmcv.cnn import Scale, bias_init_with_prob, normal_init
 
 from mmdet3d.models.detectors.atlas import coordinates, get_origin
-from mmdet3d.core.post_processing import aligned_3d_nms
+from mmdet3d.core.post_processing import box3d_multiclass_nms
 from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 
 INF = 1e8
@@ -244,24 +244,21 @@ class VoxelFCOS3DHeadV2(nn.Module):
         regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
         gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
         gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 7)
-        xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
-        xs = xs[:, None].expand(n_points, n_boxes)
-        ys = ys[:, None].expand(n_points, n_boxes)
-        zs = zs[:, None].expand(n_points, n_boxes)
-
-        distance = torch.sqrt(
-            torch.pow(xs - gt_bboxes[..., 0], 2) +
-            torch.pow(ys - gt_bboxes[..., 1], 2)
-        )
-        dx_min = distance * torch.cos(gt_bboxes[..., 6]) + gt_bboxes[..., 3] / 2
-        dx_max = gt_bboxes[..., 3] / 2 - distance * torch.cos(gt_bboxes[..., 6])
-        dy_min = gt_bboxes[..., 4] / 2 - distance * torch.sin(gt_bboxes[..., 6])
-        dy_max = distance * torch.sin(gt_bboxes[..., 6]) + gt_bboxes[..., 4] / 2
-        dz_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
-        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
-        bbox_targets = torch.stack((
-            dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]
-        ), dim=-1)
+        points = points.unsqueeze(1).expand(n_points, n_boxes, 3)
+        shift = torch.stack((
+            points[..., 0] - gt_bboxes[..., 0],
+            points[..., 1] - gt_bboxes[..., 1],
+            points[..., 2] - gt_bboxes[..., 2]
+        ), dim=-1).permute(1, 0, 2)
+        shift = rotation_3d_in_axis(shift, -gt_bboxes[0, :, 6], axis=2).permute(1, 0, 2)
+        points = gt_bboxes[..., :3] + shift
+        dx_min = points[..., 0] - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
+        dx_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - points[..., 0]
+        dy_min = points[..., 1] - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
+        dy_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - points[..., 1]
+        dz_min = points[..., 2] - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
+        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - points[..., 2]
+        bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]), dim=-1)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
@@ -338,64 +335,61 @@ class VoxelFCOS3DHeadV2(nn.Module):
             origin=img_meta['lidar2img']['origin'],
             device=centernesses[0].device
         )
-        mlvl_bboxes, mlvl_scores, mlvl_labels = [], [], []
+        mlvl_bboxes, mlvl_scores = [], []
         for centerness, bbox_pred, cls_score, points in zip(
             centernesses, bbox_preds, cls_scores, mlvl_points
         ):
             centerness = centerness.permute(1, 2, 3, 0).reshape(-1).sigmoid()
-            bbox_pred = bbox_pred.permute(1, 2, 3, 0).reshape(-1, 6)
+            bbox_pred = bbox_pred.permute(1, 2, 3, 0).reshape(-1, 7)
             scores = cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes).sigmoid()
             scores = scores * centerness[:, None]
-            scores, labels = scores.max(dim=1)
+            max_scores, _ = scores.max(dim=1)
 
-            score_thr = self.test_cfg['score_thr']
-            if score_thr > .0:
-                ids = scores > score_thr
-                bbox_pred = bbox_pred[ids, :]
+            if len(scores) > self.test_cfg.nms_pre > 0:
+                _, ids = max_scores.topk(self.test_cfg.nms_pre)
+                bbox_pred = bbox_pred[ids]
                 scores = scores[ids]
-                labels = labels[ids]
-                points = points[ids, :]
+                points = points[ids]
 
-            nms_pre = self.test_cfg['nms_pre']
-            if len(scores) > nms_pre > 0:
-                _, ids = scores.topk(nms_pre)
-                bbox_pred = bbox_pred[ids, :]
-                scores = scores[ids]
-                labels = labels[ids]
-                points = points[ids, :]
-
-            bboxes = distance2bbox3d(points, bbox_pred)
+            bboxes = distance2rotated_bbox3d(points, bbox_pred)
             mlvl_bboxes.append(bboxes)
             mlvl_scores.append(scores)
-            mlvl_labels.append(labels)
 
         bboxes = torch.cat(mlvl_bboxes)
         scores = torch.cat(mlvl_scores)
-        labels = torch.cat(mlvl_labels)
-        ids = aligned_3d_nms(bboxes, scores, labels, self.test_cfg.iou_thr)
-        bboxes = bboxes[ids]
-        bboxes = torch.stack((
-            (bboxes[:, 0] + bboxes[:, 3]) / 2.,
-            (bboxes[:, 1] + bboxes[:, 4]) / 2.,
-            (bboxes[:, 2] + bboxes[:, 5]) / 2.,
-            bboxes[:, 3] - bboxes[:, 0],
-            bboxes[:, 4] - bboxes[:, 1],
-            bboxes[:, 5] - bboxes[:, 2]
+        bboxes_for_nms = torch.stack((
+            bboxes[:, 0] - bboxes[:, 3] / 2,
+            bboxes[:, 1] - bboxes[:, 4] / 2,
+            bboxes[:, 0] + bboxes[:, 3] / 2,
+            bboxes[:, 1] + bboxes[:, 4] / 2,
+            bboxes[:, 6]
         ), dim=1)
-        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5), box_dim=6, with_yaw=False)
-        return bboxes, scores[ids], labels[ids]
+        bboxes, scores, labels, _ = box3d_multiclass_nms(
+            mlvl_bboxes=bboxes,
+            mlvl_bboxes_for_nms=bboxes_for_nms,
+            mlvl_scores=scores,
+            score_thr=self.test_cfg.score_thr,
+            max_num=self.test_cfg.nms_pre,
+            cfg=self.test_cfg,
+        )
+        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5))
+        return bboxes, scores, labels
 
 
 def distance2rotated_bbox3d(points, distance):
+    if distance.shape[0] == 0:
+        return distance
+
     shift = torch.stack((
-        distance[:, 1] - distance[:, 0],
-        distance[:, 3] - distance[:, 2],
-        distance[:, 5] - distance[:, 4]
+        (distance[:, 1] - distance[:, 0]) / 2,
+        (distance[:, 3] - distance[:, 2]) / 2,
+        (distance[:, 5] - distance[:, 4]) / 2
     ), dim=-1).view(-1, 1, 3)
-    center = points + rotation_3d_in_axis(shift, -distance[:, 6], axis=2)[:, 0, :]
+    shift = rotation_3d_in_axis(shift, distance[:, 6], axis=2)[:, 0, :]
+    center = points + shift
     size = torch.stack((
-        (distance[:, 0] + distance[:, 1]) / 2,
-        (distance[:, 2] + distance[:, 3]) / 2,
-        (distance[:, 4] + distance[:, 5]) / 2
+        distance[:, 0] + distance[:, 1],
+        distance[:, 2] + distance[:, 3],
+        distance[:, 4] + distance[:, 5]
     ), dim=-1)
     return torch.cat((center, size, distance[:, 6:7]), dim=-1)
