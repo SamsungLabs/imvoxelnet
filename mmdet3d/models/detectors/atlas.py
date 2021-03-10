@@ -35,10 +35,7 @@ class AtlasDetector(BaseDetector):
         self.bbox_head.init_weights()
 
     def forward_train(self, img, img_metas, gt_bboxes_3d, gt_labels_3d, **kwargs):
-        batch_size = img.shape[0]
-        img = img.reshape([-1] + list(img.shape)[2:])
         x = self.extract_feat(img)
-        x = x.reshape([batch_size, -1] + list(x.shape[1:]))
 
         volume, valid = [], []
         for feature, img_meta in zip(x, img_metas):
@@ -50,7 +47,7 @@ class AtlasDetector(BaseDetector):
             img_volume, img_valid = backproject(
                 voxel_dim=self.train_cfg['n_voxels'],
                 voxel_size=self.train_cfg['voxel_size'],
-                origin=origin.reshape(1, 3).to(x.device),
+                origin=origin.reshape(1, 3),
                 projection=projection.to(x.device),
                 features=feature
             )
@@ -70,36 +67,41 @@ class AtlasDetector(BaseDetector):
         return losses
 
     def extract_feat(self, img):
+        batch_size = img.shape[0]
+        img = img.reshape([-1] + list(img.shape)[2:])
         x = self.backbone(img)
         x = self.neck(x)[0]
-        return x
+        return x.reshape([batch_size, -1] + list(x.shape[1:]))
 
     def forward_test(self, img, img_metas, **kwargs):
         # not supporting aug_test for now
         return self.simple_test(img, img_metas)
 
     def simple_test(self, img, img_metas):
-        assert len(img) == len(img_metas) == 1
-        volume, valid, projection = .0, 0, None
-        for i in range(img.shape[1]):
-            x = self.extract_feat(img[:, i, ...])
-            if projection is None:
-                projection = self._compute_projection(img_metas[0], x.shape[-2:]).to(x.device)
-            origin = torch.tensor(get_origin(
-                n_voxels=self.test_cfg['n_voxels'],
-                voxel_size=self.test_cfg['voxel_size'],
-                origin=img_metas[0]['lidar2img']['origin']))
-            img_volume, img_valid = backproject(
-                voxel_dim=self.test_cfg['n_voxels'],
-                voxel_size=self.test_cfg['voxel_size'],
-                origin=origin.reshape(1, 3).to(x.device),
-                projection=projection[i][None, ...],
-                features=x
-            )
-            volume += img_volume
-            valid += img_valid
-        x = volume / valid
-        x[0, :, valid[0, 0] == 0] = .0
+        x = self.extract_feat(img)
+
+        ys = []
+        for features, img_meta in zip(x, img_metas):
+            projections = self._compute_projection(img_meta, features.shape[-2:])
+            volume, valid = .0, 0
+            for feature, projection in zip(features, projections):
+                origin = torch.tensor(get_origin(
+                    n_voxels=self.test_cfg['n_voxels'],
+                    voxel_size=self.test_cfg['voxel_size'],
+                    origin=img_meta['lidar2img']['origin']))
+                img_volume, img_valid = backproject(
+                    voxel_dim=self.test_cfg['n_voxels'],
+                    voxel_size=self.test_cfg['voxel_size'],
+                    origin=origin.reshape(1, 3),
+                    projection=projection[None, ...].to(x.device),
+                    features=feature[None, ...]
+                )
+                volume += img_volume[0]
+                valid += img_valid[0]
+            y = volume / valid
+            y[:, valid[0] == 0] = .0
+            ys.append(y)
+        x = torch.stack(ys)
 
         x = self.neck_3d(x)
         x = self.bbox_head(x)
