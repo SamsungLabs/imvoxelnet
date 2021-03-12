@@ -57,7 +57,7 @@ class VoxelFCOS3DHeadV2(nn.Module):
             ) for _ in range(n_convs)])
 
         self.centerness_conv = nn.Conv3d(self.in_channels, 1, 3, padding=1, bias=False)
-        self.reg_conv = nn.Conv3d(self.in_channels, 8, 3, padding=1, bias=False)
+        self.reg_conv = nn.Conv3d(self.in_channels, 7, 3, padding=1, bias=False)
         self.cls_conv = nn.Conv3d(self.in_channels, self.n_classes, 3, padding=1)
         self.scales = nn.ModuleList([Scale(1.) for _ in self.regress_ranges])
 
@@ -82,18 +82,15 @@ class VoxelFCOS3DHeadV2(nn.Module):
         cls = self.cls_convs(x)
         reg_final = self.reg_conv(reg)
         reg_distance = torch.exp(scale(reg_final[:, :6]))
-        reg_angle = torch.atan2(
-            torch.sigmoid((reg_final[:, 6:7])),
-            torch.sigmoid((reg_final[:, 7:8]))
-        )
+        reg_angle = reg_final[:, 6:7]
         return (
             self.centerness_conv(reg),
             torch.cat((reg_distance, reg_angle), dim=1),
             self.cls_conv(cls)
         )
 
-    def forward_train(self, x, img_metas, gt_bboxes, gt_labels):
-        loss_inputs = self(x) + (img_metas, gt_bboxes, gt_labels)
+    def forward_train(self, x, valid, img_metas, gt_bboxes, gt_labels):
+        loss_inputs = self(x) + (valid, img_metas, gt_bboxes, gt_labels)
         losses = self.loss(*loss_inputs)
         return losses
 
@@ -101,6 +98,7 @@ class VoxelFCOS3DHeadV2(nn.Module):
              centernesses,
              bbox_preds,
              cls_scores,
+             valid,
              img_metas,
              gt_bboxes,
              gt_labels):
@@ -119,14 +117,20 @@ class VoxelFCOS3DHeadV2(nn.Module):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) \
-               == len(img_metas) == len(gt_bboxes) == len(gt_labels)
+        assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) == \
+               len(valid) == len(img_metas) == len(gt_bboxes) == len(gt_labels)
+
+        valids = []
+        for x in centernesses:
+            valids.append(nn.Upsample(size=x.shape[-3:], mode='trilinear')(valid).round().bool())
+
         loss_centerness, loss_bbox, loss_cls = [], [], []
         for i in range(len(img_metas)):
             img_loss_centerness, img_loss_bbox, img_loss_cls = self._loss_single(
                 centernesses=[x[i] for x in centernesses],
                 bbox_preds=[x[i] for x in bbox_preds],
                 cls_scores=[x[i] for x in cls_scores],
+                valids=[x[i] for x in valids],
                 img_meta=img_metas[i],
                 gt_bboxes=gt_bboxes[i],
                 gt_labels=gt_labels[i]
@@ -144,6 +148,7 @@ class VoxelFCOS3DHeadV2(nn.Module):
                      centernesses,
                      bbox_preds,
                      cls_scores,
+                     valids,
                      img_meta,
                      gt_bboxes,
                      gt_labels):
@@ -178,18 +183,24 @@ class VoxelFCOS3DHeadV2(nn.Module):
                               for bbox_pred in bbox_preds]
         flatten_centerness = [centerness.permute(1, 2, 3, 0).reshape(-1)
                               for centerness in centernesses]
+        flatten_valids = [valid.permute(1, 2, 3, 0).reshape(-1)
+                          for valid in valids]
         flatten_cls_scores = torch.cat(flatten_cls_scores)
         flatten_bbox_preds = torch.cat(flatten_bbox_preds)
         flatten_centerness = torch.cat(flatten_centerness)
+        flatten_valids = torch.cat(flatten_valids)
         flatten_labels = labels.to(centernesses[0].device)
         flatten_bbox_targets = bbox_targets.to(centernesses[0].device)
         flatten_points = torch.cat(mlvl_points)
 
         # skip background
-        pos_inds = torch.nonzero(flatten_labels < self.n_classes).reshape(-1)
+        pos_inds = torch.nonzero(torch.logical_and(
+            flatten_labels < self.n_classes,
+            flatten_valids
+        )).reshape(-1)
         n_pos = torch.tensor(len(pos_inds), dtype=torch.float, device=centernesses[0].device)
         n_pos = max(reduce_mean(n_pos), 1.)
-        loss_cls = self.loss_cls(flatten_cls_scores, flatten_labels, avg_factor=n_pos)
+        loss_cls = self.loss_cls(flatten_cls_scores[flatten_valids], flatten_labels[flatten_valids], avg_factor=n_pos)
         pos_bbox_preds = flatten_bbox_preds[pos_inds]
         pos_centerness = flatten_centerness[pos_inds]
 
@@ -261,10 +272,10 @@ class VoxelFCOS3DHeadV2(nn.Module):
         bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]), dim=-1)
 
         # condition1: inside a gt bbox
-        inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
+        inside_gt_bbox_mask = bbox_targets[..., :6].min(-1)[0] > 0  # skip angle
 
         # condition2: limit the regression range for each location
-        max_regress_distance = bbox_targets.max(-1)[0]
+        max_regress_distance = bbox_targets[..., :6].max(-1)[0]  # skip angle
         inside_regress_range = (
                 (max_regress_distance >= regress_ranges[..., 0])
                 & (max_regress_distance <= regress_ranges[..., 1]))
@@ -357,6 +368,9 @@ class VoxelFCOS3DHeadV2(nn.Module):
 
         bboxes = torch.cat(mlvl_bboxes)
         scores = torch.cat(mlvl_scores)
+        # Add a dummy background class to the end. Nms needs to be fixed in the future.
+        padding = scores.new_zeros(scores.shape[0], 1)
+        scores = torch.cat([scores, padding], dim=1)
         bboxes_for_nms = torch.stack((
             bboxes[:, 0] - bboxes[:, 3] / 2,
             bboxes[:, 1] - bboxes[:, 4] / 2,

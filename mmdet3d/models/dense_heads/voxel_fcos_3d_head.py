@@ -85,8 +85,8 @@ class VoxelFCOS3DHead(nn.Module):
             self.cls_conv(cls)
         )
 
-    def forward_train(self, x, img_metas, gt_bboxes, gt_labels):
-        loss_inputs = self(x) + (img_metas, gt_bboxes, gt_labels)
+    def forward_train(self, x, valid, img_metas, gt_bboxes, gt_labels):
+        loss_inputs = self(x) + (valid, img_metas, gt_bboxes, gt_labels)
         losses = self.loss(*loss_inputs)
         return losses
 
@@ -94,6 +94,7 @@ class VoxelFCOS3DHead(nn.Module):
              centernesses,
              bbox_preds,
              cls_scores,
+             valid,
              img_metas,
              gt_bboxes,
              gt_labels):
@@ -112,14 +113,20 @@ class VoxelFCOS3DHead(nn.Module):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) \
-               == len(img_metas) == len(gt_bboxes) == len(gt_labels)
+        assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) == \
+               len(valid) == len(img_metas) == len(gt_bboxes) == len(gt_labels)
+
+        valids = []
+        for x in centernesses:
+            valids.append(nn.Upsample(size=x.shape[-3:], mode='trilinear')(valid).round().bool())
+
         loss_centerness, loss_bbox, loss_cls = [], [], []
         for i in range(len(img_metas)):
             img_loss_centerness, img_loss_bbox, img_loss_cls = self._loss_single(
                 centernesses=[x[i] for x in centernesses],
                 bbox_preds=[x[i] for x in bbox_preds],
                 cls_scores=[x[i] for x in cls_scores],
+                valids = [x[i] for x in valids],
                 img_meta=img_metas[i],
                 gt_bboxes=gt_bboxes[i],
                 gt_labels=gt_labels[i]
@@ -137,6 +144,7 @@ class VoxelFCOS3DHead(nn.Module):
                      centernesses,
                      bbox_preds,
                      cls_scores,
+                     valids,
                      img_meta,
                      gt_bboxes,
                      gt_labels):
@@ -171,18 +179,24 @@ class VoxelFCOS3DHead(nn.Module):
                               for bbox_pred in bbox_preds]
         flatten_centerness = [centerness.permute(1, 2, 3, 0).reshape(-1)
                               for centerness in centernesses]
+        flatten_valids = [valid.permute(1, 2, 3, 0).reshape(-1)
+                          for valid in valids]
         flatten_cls_scores = torch.cat(flatten_cls_scores)
         flatten_bbox_preds = torch.cat(flatten_bbox_preds)
         flatten_centerness = torch.cat(flatten_centerness)
+        flatten_valids = torch.cat(flatten_valids)
         flatten_labels = labels.to(centernesses[0].device)
         flatten_bbox_targets = bbox_targets.to(centernesses[0].device)
         flatten_points = torch.cat(mlvl_points)
 
         # skip background
-        pos_inds = torch.nonzero(flatten_labels < self.n_classes).reshape(-1)
+        pos_inds = torch.nonzero(torch.logical_and(
+            flatten_labels < self.n_classes,
+            flatten_valids
+        )).reshape(-1)
         n_pos = torch.tensor(len(pos_inds), dtype=torch.float, device=centernesses[0].device)
         n_pos = max(reduce_mean(n_pos), 1.)
-        loss_cls = self.loss_cls(flatten_cls_scores, flatten_labels, avg_factor=n_pos)
+        loss_cls = self.loss_cls(flatten_cls_scores[flatten_valids], flatten_labels[flatten_valids], avg_factor=n_pos)
         pos_bbox_preds = flatten_bbox_preds[pos_inds]
         pos_centerness = flatten_centerness[pos_inds]
 

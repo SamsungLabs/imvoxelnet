@@ -59,11 +59,12 @@ class AtlasDetector(BaseDetector):
         valid = valid.sum(dim=1)
         x = volume / valid
         x = x.transpose(0, 1)
-        x[:, valid[:, 0] == 0] = .0
+        valid = valid > 0
+        x[:, ~valid[:, 0]] = .0
         x = x.transpose(0, 1)
 
         x = self.neck_3d(x)
-        losses = self.bbox_head.forward_train(x, img_metas, gt_bboxes_3d, gt_labels_3d)
+        losses = self.bbox_head.forward_train(x, valid.float(), img_metas, gt_bboxes_3d, gt_labels_3d)
         return losses
 
     def extract_feat(self, img):
