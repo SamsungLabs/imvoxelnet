@@ -1,9 +1,7 @@
 import skimage.io
 import skimage.draw
 import numpy as np
-from mmdet3d.datasets import ScanNetMultiViewDataset, SUNRGBDMultiViewDataset
-
-img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+from mmdet3d.datasets import ScanNetMultiViewDataset, SUNRGBDMultiViewDataset, KittiMultiViewDataset
 
 
 def run_multi_view_dataset(dataset):
@@ -20,7 +18,7 @@ def run_multi_view_dataset(dataset):
     dim = 0 if img_meta['img_shape'][0] == img_meta['pad_shape'][0] else 1
     ratio = img_meta['ori_shape'][dim] / shape[dim]
     intrinsic[:2] /= ratio
-    projection = intrinsic[:3, :3] @ extrinsic[:3]
+    projection = intrinsic @ extrinsic[:3]
     for corners, label in zip(
         data['gt_bboxes_3d']._data.corners.numpy(),
         data['gt_labels_3d']._data.numpy()
@@ -65,16 +63,14 @@ def test_scannet_multi_view_dataset():
             transforms=[
                 dict(type='LoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-                # dict(type='Normalize', **img_norm_cfg),
                 dict(type='Pad', size=(480, 640))
             ]),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
-    ann_file = './data/scannet/scannet_infos_train.pkl'
     dataset = ScanNetMultiViewDataset(
         data_root=data_root,
-        ann_file=ann_file,
+        ann_file=data_root + 'scannet_infos_train.pkl',
         pipeline=pipeline,
         classes=class_names,
         filter_empty_gt=True,
@@ -96,16 +92,14 @@ def test_sunrgbd_multi_view_dataset():
             transforms=[
                 dict(type='LoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-                # dict(type='Normalize', **img_norm_cfg),
                 dict(type='Pad', size=(480, 640))
             ]),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
-    ann_file = './data/sunrgbd/sunrgbd_infos_train.pkl'
     dataset = SUNRGBDMultiViewDataset(
         data_root=data_root,
-        ann_file=ann_file,
+        ann_file=data_root + 'sunrgbd_infos_train.pkl',
         pipeline=pipeline,
         classes=class_names,
         filter_empty_gt=True,
@@ -114,4 +108,35 @@ def test_sunrgbd_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-test_sunrgbd_multi_view_dataset()
+def test_kitti_dataset():
+    data_root = 'data/kitti/'
+    class_names = ['Car']
+    input_modality = dict(use_lidar=False, use_camera=True)
+    point_cloud_range = [0, -39.68, -3, 69.12, 39.68, 1]
+
+    pipeline = [
+        dict(type='LoadAnnotations3D'),
+        dict(
+            type='ScanNetMultiViewPipeline',
+            n_images=1,
+            transforms=[
+                dict(type='LoadImageFromFile'),
+                dict(type='Resize', img_scale=(1280, 384), keep_ratio=True),
+                dict(type='Pad', size=(384, 1280))
+            ]),
+        dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+        dict(type='KITTISetOrigin', point_cloud_range=point_cloud_range),
+        dict(type='DefaultFormatBundle3D', class_names=class_names),
+        dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
+    dataset = KittiMultiViewDataset(
+        data_root=data_root,
+        ann_file=data_root + 'kitti_infos_train.pkl',
+        split='training',
+        pts_prefix='velodyne_reduced',
+        pipeline=pipeline,
+        modality=input_modality,
+        classes=class_names,
+        test_mode=False)
+    run_multi_view_dataset(dataset)
+
+test_kitti_dataset()

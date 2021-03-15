@@ -9,8 +9,7 @@ model = dict(
         frozen_stages=1,
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
-        style='pytorch'
-    ),
+        style='pytorch'),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -22,20 +21,19 @@ model = dict(
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
-        conditional=False
-    ),
+        conditional=False),
     bbox_head=dict(
         type='VoxelFCOS3DHeadV2',
         n_classes=10,
         in_channels=64,
-        n_convs=0
-    )
-)
-train_cfg = dict(n_voxels=(80, 80, 32), voxel_size=.08)
-# todo: increase n_voxels for test and val
+        n_convs=0))
+voxel_size=(.08, .08, .08)
+train_cfg = dict(
+    n_voxels=(80, 80, 32),
+    voxel_size=voxel_size)
 test_cfg = dict(
     n_voxels=(80, 80, 32),
-    voxel_size=.08,
+    voxel_size=voxel_size,
     nms_pre=1000,
     nms_thr=.15,
     use_rotate_nms=True,
@@ -54,15 +52,14 @@ train_pipeline = [
         n_images=1,
         transforms=[
             dict(type='LoadImageFromFile'),
-            # dict(type='RandomFlip'),  # todo: <-
+            dict(type='RandomFlip'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size=(480, 640))
         ]),
-    # dict(type='RandomShiftOrigin', std=.1),  # todo: <-
+    dict(type='RandomShiftOrigin', std=.1),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
-    dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
+    dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
     dict(
         type='ScanNetMultiViewPipeline',
@@ -74,8 +71,7 @@ test_pipeline = [
             dict(type='Pad', size=(480, 640))
         ]),
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
-    dict(type='Collect3D', keys=['img'])
-]
+    dict(type='Collect3D', keys=['img'])]
 data = dict(
     samples_per_gpu=4,
     workers_per_gpu=4,
@@ -105,12 +101,11 @@ data = dict(
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
-        box_type_3d='Depth')
-)
+        box_type_3d='Depth'))
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001,  # todo: ?
+    lr=0.0001,
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
