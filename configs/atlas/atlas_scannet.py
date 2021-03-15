@@ -9,8 +9,7 @@ model = dict(
         frozen_stages=1,
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
-        style='pytorch'
-    ),
+        style='pytorch'),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -22,20 +21,19 @@ model = dict(
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
-        conditional=False
-    ),
+        conditional=False),
     bbox_head=dict(
         type='VoxelFCOS3DHead',
         n_classes=18,
         in_channels=64,
-        n_convs=0
-    )
-)
-train_cfg = dict(n_voxels=(80, 80, 32), voxel_size=.08)
-# todo: increase n_voxels for test and val
+        n_convs=0))
+voxel_size=(.08, .08, .08)
+train_cfg = dict(
+    n_voxels=(80, 80, 32),
+    voxel_size=voxel_size)
 test_cfg = dict(
     n_voxels=(80, 80, 32),
-    voxel_size=.08,
+    voxel_size=voxel_size,
     nms_pre=1000,
     iou_thr=.15,
     score_thr=.05)
@@ -111,7 +109,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001,  # todo: ?
+    lr=0.0001,
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))

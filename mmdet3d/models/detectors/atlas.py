@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from mmdet.models import DETECTORS, build_backbone, build_head, build_neck
 from mmdet.models.detectors import BaseDetector
 
@@ -37,16 +36,19 @@ class AtlasDetector(BaseDetector):
     def forward_train(self, img, img_metas, gt_bboxes_3d, gt_labels_3d, **kwargs):
         x = self.extract_feat(img)
 
+        voxel_size = torch.tensor(self.train_cfg['voxel_size']).float()
         volume, valid = [], []
         for feature, img_meta in zip(x, img_metas):
             projection = self._compute_projection(img_meta, feature.shape[-2:])
-            origin = torch.tensor(get_origin(
-                n_voxels=self.train_cfg['n_voxels'],
-                voxel_size=self.train_cfg['voxel_size'],
-                origin=img_meta['lidar2img']['origin']))
+            origin = torch.tensor(img_meta['lidar2img']['origin'])
+            origin = get_origin(
+                n_voxels=torch.tensor(self.train_cfg['n_voxels']),
+                voxel_size=voxel_size,
+                origin=origin
+            )
             img_volume, img_valid = backproject(
                 voxel_dim=self.train_cfg['n_voxels'],
-                voxel_size=self.train_cfg['voxel_size'],
+                voxel_size=voxel_size.reshape(1, 3, 1).to(x.device),
                 origin=origin.reshape(1, 3),
                 projection=projection.to(x.device),
                 features=feature
@@ -82,17 +84,20 @@ class AtlasDetector(BaseDetector):
         x = self.extract_feat(img)
 
         ys = []
+        voxel_size = torch.tensor(self.test_cfg['voxel_size']).float()
         for features, img_meta in zip(x, img_metas):
             projections = self._compute_projection(img_meta, features.shape[-2:])
+            origin = torch.tensor(img_meta['lidar2img']['origin'])
             volume, valid = .0, 0
             for feature, projection in zip(features, projections):
-                origin = torch.tensor(get_origin(
-                    n_voxels=self.test_cfg['n_voxels'],
-                    voxel_size=self.test_cfg['voxel_size'],
-                    origin=img_meta['lidar2img']['origin']))
+                origin = get_origin(
+                    n_voxels=torch.tensor(self.test_cfg['n_voxels']),
+                    voxel_size=voxel_size,
+                    origin=origin
+                )
                 img_volume, img_valid = backproject(
                     voxel_dim=self.test_cfg['n_voxels'],
-                    voxel_size=self.test_cfg['voxel_size'],
+                    voxel_size=voxel_size.reshape(1, 3, 1).to(x.device),
                     origin=origin.reshape(1, 3),
                     projection=projection[None, ...].to(x.device),
                     features=feature[None, ...]
@@ -120,7 +125,7 @@ class AtlasDetector(BaseDetector):
     @staticmethod
     def _compute_projection(img_meta, shape):
         projection = []
-        intrinsic = np.copy(img_meta['lidar2img']['intrinsic'][:3, :3])
+        intrinsic = torch.tensor(img_meta['lidar2img']['intrinsic'][:3, :3])
         # check if only one side is padded
         assert img_meta['img_shape'][0] == img_meta['pad_shape'][0] or \
                img_meta['img_shape'][1] == img_meta['pad_shape'][1]
@@ -128,20 +133,20 @@ class AtlasDetector(BaseDetector):
         ratio = img_meta['ori_shape'][dim] / shape[dim]
         intrinsic[:2] /= ratio
         for extrinsic in img_meta['lidar2img']['extrinsic']:
-            projection.append(intrinsic @ extrinsic[:3])
-        return torch.tensor(np.stack(projection))
+            projection.append(intrinsic @ torch.tensor(extrinsic[:3]))
+        return torch.stack(projection)
 
 
 def get_origin(n_voxels, voxel_size, origin):
     """
     Args:
-        n_voxels (tuple(int, int, int)): specify the size of the volume
-        voxel_size (float): metric size of each voxel (ex: .04m)
-        origin (tuple(float, float, float)): specify the center of the volume
+        n_voxels (Tensor): sizes of the volume of shape (3,)
+        voxel_size (Tensor): sizes of one voxesl of shape (3,)
+        origin (Tensor): coordinates of the volume's center of shape (3,)
     Returns:
-        np.array: of 3 floats
+        Tensor: coordinates of the origin of shape (3,)
     """
-    return origin - np.array(n_voxels, dtype=np.float32) / 2. * voxel_size
+    return origin - n_voxels / 2. * voxel_size
 
 
 # copy from https://github.com/magicleap/Atlas/blob/master/atlas/tsdf.py

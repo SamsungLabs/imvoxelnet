@@ -165,6 +165,12 @@ class Anchor3DHead(nn.Module, AnchorTrainMixin):
         """
         return multi_apply(self.forward_single, feats)
 
+    def forward_train(self, x, valid, img_metas, gt_bboxes_3d, gt_labels_3d):
+        # todo: support valid in separate class
+        x = self(x)
+        losses = self.loss(*x, gt_bboxes_3d, gt_labels_3d, img_metas)
+        return losses
+
     def get_anchors(self, featmap_sizes, input_metas, device='cuda'):
         """Get anchors according to feature map sizes.
 

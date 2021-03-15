@@ -223,11 +223,11 @@ class VoxelFCOS3DHead(nn.Module):
     def get_points(self, featmap_sizes, voxel_size, origin, device):
         mlvl_points = []
         for i, featmap_size in enumerate(featmap_sizes):
-            scale_voxel_size = voxel_size * (2 ** i)
+            scale_voxel_size = torch.tensor(voxel_size) * (2 ** i)
             base_points = coordinates(featmap_size, device).permute(1, 0)
-            new_origin = get_origin(featmap_size, scale_voxel_size, origin)
-            new_origin = torch.tensor(new_origin.reshape(1, 3), device=device)
-            points = base_points * scale_voxel_size + new_origin
+            new_origin = get_origin(torch.tensor(featmap_size), scale_voxel_size, torch.tensor(origin))
+            new_origin = new_origin.reshape(1, 3).to(device)
+            points = base_points * scale_voxel_size.to(device) + new_origin
             mlvl_points.append(points)
         return mlvl_points
 

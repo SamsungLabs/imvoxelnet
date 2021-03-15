@@ -75,3 +75,14 @@ class RandomShiftOrigin:
         shift = np.random.normal(.0, self.std, 3)
         results['lidar2img']['origin'] += shift
         return results
+
+
+@PIPELINES.register_module()
+class KittiSetOrigin:
+    def __init__(self, point_cloud_range):
+        point_cloud_range = np.array(point_cloud_range, dtype=np.float32)
+        self.origin = (point_cloud_range[:3] + point_cloud_range[3:]) / 2.
+
+    def __call__(self, results):
+        results['lidar2img']['origin'] = self.origin
+        return results
