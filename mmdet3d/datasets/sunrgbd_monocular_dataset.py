@@ -86,10 +86,7 @@ class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
         intrinsic[:3, :3] = matrices['intrinsic']
         extrinsic = np.eye(4)
         extrinsic[:3, :3] = matrices['extrinsic'].T
-        if info['annos']['gt_num'] != 0:
-            origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
-        else:
-            origin = np.array([0, 0, 0])
+        origin = np.array([0, 3, -1])
         input_dict = dict(
             img_prefix=[None],
             img_info=[dict(filename=img_filename)],

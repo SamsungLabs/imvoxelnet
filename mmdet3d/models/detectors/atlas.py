@@ -41,7 +41,7 @@ class AtlasDetector(BaseDetector):
         for feature, img_meta in zip(x, img_metas):
             projection = self._compute_projection(img_meta, feature.shape[-2:])
             origin = torch.tensor(img_meta['lidar2img']['origin'])
-            origin = get_origin(
+            new_origin = get_origin(
                 n_voxels=torch.tensor(self.train_cfg['n_voxels']),
                 voxel_size=voxel_size,
                 origin=origin
@@ -49,7 +49,7 @@ class AtlasDetector(BaseDetector):
             img_volume, img_valid = backproject(
                 voxel_dim=self.train_cfg['n_voxels'],
                 voxel_size=voxel_size.reshape(1, 3, 1).to(x.device),
-                origin=origin.reshape(1, 3),
+                origin=new_origin.reshape(1, 3),
                 projection=projection.to(x.device),
                 features=feature
             )
@@ -90,7 +90,7 @@ class AtlasDetector(BaseDetector):
             origin = torch.tensor(img_meta['lidar2img']['origin'])
             volume, valid = .0, 0
             for feature, projection in zip(features, projections):
-                origin = get_origin(
+                new_origin = get_origin(
                     n_voxels=torch.tensor(self.test_cfg['n_voxels']),
                     voxel_size=voxel_size,
                     origin=origin
@@ -98,7 +98,7 @@ class AtlasDetector(BaseDetector):
                 img_volume, img_valid = backproject(
                     voxel_dim=self.test_cfg['n_voxels'],
                     voxel_size=voxel_size.reshape(1, 3, 1).to(x.device),
-                    origin=origin.reshape(1, 3),
+                    origin=new_origin.reshape(1, 3),
                     projection=projection[None, ...].to(x.device),
                     features=feature[None, ...]
                 )

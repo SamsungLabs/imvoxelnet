@@ -84,5 +84,19 @@ class KittiSetOrigin:
         self.origin = (point_cloud_range[:3] + point_cloud_range[3:]) / 2.
 
     def __call__(self, results):
-        results['lidar2img']['origin'] = self.origin
+        results['lidar2img']['origin'] = self.origin.copy()
+        return results
+
+
+@PIPELINES.register_module()
+class SUNRGBDSetOrigin:
+    def __call__(self, results):
+        intrinsic = results['lidar2img']['intrinsic'][:3, :3]
+        extrinsic = results['lidar2img']['extrinsic'][0][:3, :3]
+        projection = intrinsic @ extrinsic
+        h, w, _ = results['ori_shape']
+        center_2d_3 = np.array([w / 2, h / 2, 1], dtype=np.float32)
+        center_2d_3 *= 3
+        origin = np.linalg.inv(projection) @ center_2d_3
+        results['lidar2img']['origin'] = origin
         return results
