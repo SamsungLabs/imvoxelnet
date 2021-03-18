@@ -23,11 +23,12 @@ model = dict(
         up_layers=[3, 2, 1],
         conditional=False),
     bbox_head=dict(
-        type='VoxelFCOS3DHeadV2',
+        type='SUNRGBDVoxelFCOSHead',
         n_classes=10,
-        in_channels=64,
-        n_convs=0))
-voxel_size=(.08, .08, .08)
+        n_channels=64,
+        n_convs=0,
+        n_reg_outs=7))
+voxel_size = (.08, .08, .08)
 train_cfg = dict(
     n_voxels=(80, 80, 32),
     voxel_size=voxel_size)
@@ -57,7 +58,7 @@ train_pipeline = [
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size=(480, 640))
         ]),
-    dict(type='RandomShiftOrigin', std=.1),
+    # dict(type='RandomShiftOrigin', std=.5),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -73,7 +74,7 @@ test_pipeline = [
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
 data = dict(
-    samples_per_gpu=4,
+    samples_per_gpu=2,
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
