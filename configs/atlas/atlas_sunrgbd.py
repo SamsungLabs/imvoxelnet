@@ -52,13 +52,11 @@ train_pipeline = [
         type='ScanNetMultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='LoadImageFromFile'),
-            dict(type='RandomFlip'),
+            dict(type='SUNRGBDTotalLoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size=(480, 640))
         ]),
-    # dict(type='RandomShiftOrigin', std=.5),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -74,7 +72,7 @@ test_pipeline = [
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=4,
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
@@ -82,7 +80,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'sunrgbd_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -90,7 +88,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -98,7 +96,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,

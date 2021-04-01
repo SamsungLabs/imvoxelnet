@@ -237,9 +237,13 @@ class VoxelFCOSHead(nn.Module):
                    centernesses,
                    bbox_preds,
                    cls_scores,
+                   valid,
                    img_metas):
         assert len(centernesses[0]) == len(bbox_preds[0]) == len(cls_scores[0]) \
                == len(img_metas)
+        valids = []
+        for x in centernesses:
+            valids.append(nn.Upsample(size=x.shape[-3:], mode='trilinear')(valid).round().bool())
         n_levels = len(centernesses)
         result_list = []
         for img_id in range(len(img_metas)):
@@ -252,8 +256,11 @@ class VoxelFCOSHead(nn.Module):
             cls_score_list = [
                 cls_scores[i][img_id].detach() for i in range(n_levels)
             ]
+            valid_list = [
+                valids[i][img_id].detach() for i in range(n_levels)
+            ]
             det_bboxes_3d = self._get_bboxes_single(
-                centerness_list, bbox_pred_list, cls_score_list, img_metas[img_id]
+                centerness_list, bbox_pred_list, cls_score_list, valid_list, img_metas[img_id]
             )
             result_list.append(det_bboxes_3d)
         return result_list
@@ -262,6 +269,7 @@ class VoxelFCOSHead(nn.Module):
                            centernesses,
                            bbox_preds,
                            cls_scores,
+                           valids,
                            img_meta):
         featmap_sizes = [featmap.size()[-3:] for featmap in centernesses]
         mlvl_points = self.get_points(
@@ -272,13 +280,14 @@ class VoxelFCOSHead(nn.Module):
         )
         bbox_pred_size = bbox_preds[0].shape[0]
         mlvl_bboxes, mlvl_scores = [], []
-        for centerness, bbox_pred, cls_score, points in zip(
-            centernesses, bbox_preds, cls_scores, mlvl_points
+        for centerness, bbox_pred, cls_score, valid, points in zip(
+            centernesses, bbox_preds, cls_scores, valids, mlvl_points
         ):
             centerness = centerness.permute(1, 2, 3, 0).reshape(-1).sigmoid()
             bbox_pred = bbox_pred.permute(1, 2, 3, 0).reshape(-1, bbox_pred_size)
             scores = cls_score.permute(1, 2, 3, 0).reshape(-1, self.n_classes).sigmoid()
-            scores = scores * centerness[:, None]
+            valid = valid.permute(1, 2, 3, 0).reshape(-1)
+            scores = scores * centerness[:, None] * valid[:, None]
             max_scores, _ = scores.max(dim=1)
 
             if len(scores) > self.test_cfg.nms_pre > 0:
@@ -372,6 +381,7 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
         dz_min = centers[..., 2] - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
         dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - centers[..., 2]
         bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]), dim=-1)
+        centerness_targets = self._centerness_target(bbox_targets)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets[..., :6].min(-1)[0] > 0  # skip angle
@@ -390,9 +400,8 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
 
         labels = gt_labels[min_area_inds]
         labels[min_area == INF] = self.n_classes  # set as BG
-        bbox_targets = bbox_targets[range(n_points), min_area_inds]
 
-        return self._centerness_target(bbox_targets), self._bbox_pred_to_bbox(points, bbox_targets), labels
+        return centerness_targets[range(n_points), min_area_inds], gt_bboxes[range(n_points), min_area_inds], labels
 
     def _nms(self, bboxes, scores):
         # Add a dummy background class to the end. Nms needs to be fixed in the future.
@@ -442,9 +451,9 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
         Returns:
             Tensor: Centerness target
         """
-        x_dims = bbox_targets[:, [0, 1]]
-        y_dims = bbox_targets[:, [2, 3]]
-        z_dims = bbox_targets[:, [4, 5]]
+        x_dims = bbox_targets[..., [0, 1]]
+        y_dims = bbox_targets[..., [2, 3]]
+        z_dims = bbox_targets[..., [4, 5]]
         centerness_targets = x_dims.min(dim=-1)[0] / x_dims.max(dim=-1)[0] * \
                              y_dims.min(dim=-1)[0] / y_dims.max(dim=-1)[0] * \
                              z_dims.min(dim=-1)[0] / z_dims.max(dim=-1)[0]

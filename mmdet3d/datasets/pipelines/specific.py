@@ -1,7 +1,7 @@
 import numpy as np
 
 from mmdet.datasets.builder import PIPELINES
-from mmdet.datasets.pipelines import Compose, RandomFlip
+from mmdet.datasets.pipelines import Compose, RandomFlip, LoadImageFromFile
 
 
 @PIPELINES.register_module()
@@ -99,4 +99,17 @@ class SUNRGBDSetOrigin:
         center_2d_3 *= 3
         origin = np.linalg.inv(projection) @ center_2d_3
         results['lidar2img']['origin'] = origin
+        return results
+
+
+@PIPELINES.register_module()
+class SUNRGBDTotalLoadImageFromFile(LoadImageFromFile):
+    def __call__(self, results):
+        file_name = results['img_info']['filename']
+        flip = file_name.endswith('_flip.jpg')
+        if flip:
+            results['img_info']['filename'] = file_name.replace('_flip.jpg', '.jpg')
+        results = super().__call__(results)
+        if flip:
+            results['img'] = results['img'][:, ::-1]
         return results

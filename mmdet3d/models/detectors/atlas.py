@@ -39,7 +39,7 @@ class AtlasDetector(BaseDetector):
         voxel_size = torch.tensor(self.train_cfg['voxel_size']).float()
         volume, valid = [], []
         for feature, img_meta in zip(x, img_metas):
-            projection = self._compute_projection(img_meta, feature.shape[-2:])
+            projection = self._compute_projection(img_meta)
             origin = torch.tensor(img_meta['lidar2img']['origin'])
             new_origin = get_origin(
                 n_voxels=torch.tensor(self.train_cfg['n_voxels']),
@@ -83,10 +83,10 @@ class AtlasDetector(BaseDetector):
     def simple_test(self, img, img_metas):
         x = self.extract_feat(img)
 
-        ys = []
+        ys, valids = [], []
         voxel_size = torch.tensor(self.test_cfg['voxel_size']).float()
         for features, img_meta in zip(x, img_metas):
-            projections = self._compute_projection(img_meta, features.shape[-2:])
+            projections = self._compute_projection(img_meta)
             origin = torch.tensor(img_meta['lidar2img']['origin'])
             volume, valid = .0, 0
             for feature, projection in zip(features, projections):
@@ -107,11 +107,13 @@ class AtlasDetector(BaseDetector):
             y = volume / valid
             y[:, valid[0] == 0] = .0
             ys.append(y)
+            valids.append(valid > 0)
         x = torch.stack(ys)
+        valids = torch.stack(valids)
 
         x = self.neck_3d(x)
         x = self.bbox_head(x)
-        bbox_list = self.bbox_head.get_bboxes(*x, img_metas)
+        bbox_list = self.bbox_head.get_bboxes(*x, valids.float(), img_metas)
         bbox_results = [
             bbox3d2result(det_bboxes, det_scores, det_labels)
             for det_bboxes, det_scores, det_labels in bbox_list
@@ -123,14 +125,12 @@ class AtlasDetector(BaseDetector):
         pass
 
     @staticmethod
-    def _compute_projection(img_meta, shape):
+    def _compute_projection(img_meta):
         projection = []
         intrinsic = torch.tensor(img_meta['lidar2img']['intrinsic'][:3, :3])
-        # check if only one side is padded
-        assert img_meta['img_shape'][0] == img_meta['pad_shape'][0] or \
-               img_meta['img_shape'][1] == img_meta['pad_shape'][1]
-        dim = 0 if img_meta['img_shape'][0] == img_meta['pad_shape'][0] else 1
-        ratio = img_meta['ori_shape'][dim] / shape[dim]
+        # todo: it is not the best idea
+        # also padding must be supported while backprojecting
+        ratio = img_meta['ori_shape'][0] / (img_meta['img_shape'][0] / 4)
         intrinsic[:2] /= ratio
         for extrinsic in img_meta['lidar2img']['extrinsic']:
             projection.append(intrinsic @ torch.tensor(extrinsic[:3]))

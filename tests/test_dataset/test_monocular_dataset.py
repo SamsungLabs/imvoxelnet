@@ -90,7 +90,7 @@ def test_sunrgbd_multi_view_dataset():
             type='ScanNetMultiViewPipeline',
             n_images=1,
             transforms=[
-                dict(type='LoadImageFromFile'),
+                dict(type='SUNRGBDTotalLoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
                 dict(type='Pad', size=(480, 640))
             ]),
@@ -99,7 +99,7 @@ def test_sunrgbd_multi_view_dataset():
     ]
     dataset = SUNRGBDMultiViewDataset(
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_train.pkl',
+        ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
         pipeline=pipeline,
         classes=class_names,
         filter_empty_gt=True,
@@ -139,4 +139,4 @@ def test_kitti_dataset():
         test_mode=False)
     run_multi_view_dataset(dataset)
 
-test_kitti_dataset()
+test_sunrgbd_multi_view_dataset()

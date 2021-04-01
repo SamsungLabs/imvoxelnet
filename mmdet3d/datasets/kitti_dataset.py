@@ -9,7 +9,8 @@ from os import path as osp
 
 from mmdet.datasets import DATASETS
 from ..core import show_result
-from ..core.bbox import Box3DMode, CameraInstance3DBoxes, points_cam2img
+from ..core.bbox import (Box3DMode, CameraInstance3DBoxes, Coord3DMode,
+                         points_cam2img)
 from .custom_3d import Custom3DDataset
 
 
@@ -387,26 +388,24 @@ class KittiDataset(Custom3DDataset):
             info = self.data_infos[idx]
             sample_idx = info['image']['image_idx']
             image_shape = info['image']['image_shape'][:2]
-
             box_dict = self.convert_valid_bboxes(pred_dicts, info)
+            anno = {
+                'name': [],
+                'truncated': [],
+                'occluded': [],
+                'alpha': [],
+                'bbox': [],
+                'dimensions': [],
+                'location': [],
+                'rotation_y': [],
+                'score': []
+            }
             if len(box_dict['bbox']) > 0:
                 box_2d_preds = box_dict['bbox']
                 box_preds = box_dict['box3d_camera']
                 scores = box_dict['scores']
                 box_preds_lidar = box_dict['box3d_lidar']
                 label_preds = box_dict['label_preds']
-
-                anno = {
-                    'name': [],
-                    'truncated': [],
-                    'occluded': [],
-                    'alpha': [],
-                    'bbox': [],
-                    'dimensions': [],
-                    'location': [],
-                    'rotation_y': [],
-                    'score': []
-                }
 
                 for box, box_lidar, bbox, score, label in zip(
                         box_preds, box_preds_lidar, box_2d_preds, scores,
@@ -426,29 +425,8 @@ class KittiDataset(Custom3DDataset):
 
                 anno = {k: np.stack(v) for k, v in anno.items()}
                 annos.append(anno)
-
-                if submission_prefix is not None:
-                    curr_file = f'{submission_prefix}/{sample_idx:06d}.txt'
-                    with open(curr_file, 'w') as f:
-                        bbox = anno['bbox']
-                        loc = anno['location']
-                        dims = anno['dimensions']  # lhw -> hwl
-
-                        for idx in range(len(bbox)):
-                            print(
-                                '{} -1 -1 {:.4f} {:.4f} {:.4f} {:.4f} '
-                                '{:.4f} {:.4f} {:.4f} '
-                                '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.
-                                format(anno['name'][idx], anno['alpha'][idx],
-                                       bbox[idx][0], bbox[idx][1],
-                                       bbox[idx][2], bbox[idx][3],
-                                       dims[idx][1], dims[idx][2],
-                                       dims[idx][0], loc[idx][0], loc[idx][1],
-                                       loc[idx][2], anno['rotation_y'][idx],
-                                       anno['score'][idx]),
-                                file=f)
             else:
-                annos.append({
+                anno = {
                     'name': np.array([]),
                     'truncated': np.array([]),
                     'occluded': np.array([]),
@@ -458,7 +436,29 @@ class KittiDataset(Custom3DDataset):
                     'location': np.zeros([0, 3]),
                     'rotation_y': np.array([]),
                     'score': np.array([]),
-                })
+                }
+                annos.append(anno)
+
+            if submission_prefix is not None:
+                curr_file = f'{submission_prefix}/{sample_idx:06d}.txt'
+                with open(curr_file, 'w') as f:
+                    bbox = anno['bbox']
+                    loc = anno['location']
+                    dims = anno['dimensions']  # lhw -> hwl
+
+                    for idx in range(len(bbox)):
+                        print(
+                            '{} -1 -1 {:.4f} {:.4f} {:.4f} {:.4f} '
+                            '{:.4f} {:.4f} {:.4f} '
+                            '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format(
+                                anno['name'][idx], anno['alpha'][idx],
+                                bbox[idx][0], bbox[idx][1], bbox[idx][2],
+                                bbox[idx][3], dims[idx][1], dims[idx][2],
+                                dims[idx][0], loc[idx][0], loc[idx][1],
+                                loc[idx][2], anno['rotation_y'][idx],
+                                anno['score'][idx]),
+                            file=f)
+
             annos[-1]['sample_idx'] = np.array(
                 [sample_idx] * len(annos[-1]['score']), dtype=np.int64)
 
@@ -642,10 +642,9 @@ class KittiDataset(Custom3DDataset):
         # Post-processing
         # check box_preds_camera
         image_shape = box_preds.tensor.new_tensor(img_shape)
-        valid_cam_inds = ((box_preds_camera.tensor[:, 0] < image_shape[1]) &
-                          (box_preds_camera.tensor[:, 1] < image_shape[0]) &
-                          (box_preds_camera.tensor[:, 2] > 0) &
-                          (box_preds_camera.tensor[:, 3] > 0))
+        valid_cam_inds = ((box_2d_preds[:, 0] < image_shape[1]) &
+                          (box_2d_preds[:, 1] < image_shape[0]) &
+                          (box_2d_preds[:, 2] > 0) & (box_2d_preds[:, 3] > 0))
         # check box_preds
         limit_range = box_preds.tensor.new_tensor(self.pcd_limit_range)
         valid_pcd_inds = ((box_preds.center > limit_range[:3]) &
@@ -671,12 +670,13 @@ class KittiDataset(Custom3DDataset):
                 sample_idx=sample_idx,
             )
 
-    def show(self, results, out_dir):
+    def show(self, results, out_dir, show=True):
         """Results visualization.
 
         Args:
             results (list[dict]): List of bounding boxes results.
             out_dir (str): Output directory of visualization result.
+            show (bool): Visualize the results online.
         """
         assert out_dir is not None, 'Expect out_dir, got none.'
         for i, result in enumerate(results):
@@ -686,14 +686,13 @@ class KittiDataset(Custom3DDataset):
             file_name = osp.split(pts_path)[-1].split('.')[0]
             # for now we convert points into depth mode
             points = example['points'][0]._data.numpy()
-            points = points[..., [1, 0, 2]]
-            points[..., 0] *= -1
+            points = Coord3DMode.convert_point(points, Coord3DMode.LIDAR,
+                                               Coord3DMode.DEPTH)
             gt_bboxes = self.get_ann_info(i)['gt_bboxes_3d'].tensor
             gt_bboxes = Box3DMode.convert(gt_bboxes, Box3DMode.LIDAR,
                                           Box3DMode.DEPTH)
-            gt_bboxes[..., 2] += gt_bboxes[..., 5] / 2
             pred_bboxes = result['boxes_3d'].tensor.numpy()
             pred_bboxes = Box3DMode.convert(pred_bboxes, Box3DMode.LIDAR,
                                             Box3DMode.DEPTH)
-            pred_bboxes[..., 2] += pred_bboxes[..., 5] / 2
-            show_result(points, gt_bboxes, pred_bboxes, out_dir, file_name)
+            show_result(points, gt_bboxes, pred_bboxes, out_dir, file_name,
+                        show)
