@@ -4,8 +4,9 @@ from mmdet.core import multi_apply, reduce_mean
 from mmdet.models.builder import HEADS, build_loss
 from mmcv.cnn import Scale, bias_init_with_prob, normal_init
 
-from mmdet3d.models.detectors.atlas import coordinates, get_origin
-
+from mmdet3d.models.detectors.atlas import get_points
+from mmdet3d.core.bbox.structures import rotation_3d_in_axis
+from mmdet3d.core.post_processing import aligned_3d_nms, box3d_multiclass_nms
 
 INF = 1e8
 
@@ -158,7 +159,6 @@ class VoxelFCOSHead(nn.Module):
         featmap_sizes = [featmap.size()[-3:] for featmap in centernesses]
         mlvl_points = self.get_points(
             featmap_sizes=featmap_sizes,
-            voxel_size=self.train_cfg['voxel_size'],
             origin=img_meta['lidar2img']['origin'],
             device=gt_bboxes.device
         )
@@ -222,15 +222,14 @@ class VoxelFCOSHead(nn.Module):
         return loss_centerness, loss_bbox, loss_cls
 
     @torch.no_grad()
-    def get_points(self, featmap_sizes, voxel_size, origin, device):
+    def get_points(self, featmap_sizes, origin, device):
         mlvl_points = []
         for i, featmap_size in enumerate(featmap_sizes):
-            scale_voxel_size = torch.tensor(voxel_size) * (2 ** i)
-            base_points = coordinates(featmap_size, device).permute(1, 0)
-            new_origin = get_origin(torch.tensor(featmap_size), scale_voxel_size, torch.tensor(origin))
-            new_origin = new_origin.reshape(1, 3).to(device)
-            points = base_points * scale_voxel_size.to(device) + new_origin
-            mlvl_points.append(points)
+            mlvl_points.append(get_points(
+                n_voxels=torch.tensor(featmap_size),
+                voxel_size=torch.tensor(self.voxel_size) * (2 ** i),
+                origin=torch.tensor(origin)
+            ).reshape(3, -1).transpose(0, 1).to(device))
         return mlvl_points
 
     def get_bboxes(self,
@@ -274,7 +273,6 @@ class VoxelFCOSHead(nn.Module):
         featmap_sizes = [featmap.size()[-3:] for featmap in centernesses]
         mlvl_points = self.get_points(
             featmap_sizes=featmap_sizes,
-            voxel_size=self.test_cfg['voxel_size'],
             origin=img_meta['lidar2img']['origin'],
             device=centernesses[0].device
         )
@@ -302,8 +300,7 @@ class VoxelFCOSHead(nn.Module):
 
         bboxes = torch.cat(mlvl_bboxes)
         scores = torch.cat(mlvl_scores)
-        bboxes, scores, labels = self._nms(bboxes, scores)
-        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5))
+        bboxes, scores, labels = self._nms(bboxes, scores, img_meta)
         return bboxes, scores, labels
 
     def forward_single(self, x, scale):
@@ -318,12 +315,8 @@ class VoxelFCOSHead(nn.Module):
     def get_targets(self, points, gt_bboxes, gt_labels):
         raise NotImplementedError
 
-    def _nms(self, bboxes, scores):
+    def _nms(self, bboxes, scores, img_meta):
         raise NotImplementedError
-
-
-from mmdet3d.core.post_processing import box3d_multiclass_nms
-from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 
 
 @HEADS.register_module()
@@ -381,7 +374,7 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
         dz_min = centers[..., 2] - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
         dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - centers[..., 2]
         bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]), dim=-1)
-        centerness_targets = self._centerness_target(bbox_targets)
+        centerness_targets = compute_centerness(bbox_targets)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets[..., :6].min(-1)[0] > 0  # skip angle
@@ -403,7 +396,7 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
 
         return centerness_targets[range(n_points), min_area_inds], gt_bboxes[range(n_points), min_area_inds], labels
 
-    def _nms(self, bboxes, scores):
+    def _nms(self, bboxes, scores, img_meta):
         # Add a dummy background class to the end. Nms needs to be fixed in the future.
         padding = scores.new_zeros(scores.shape[0], 1)
         scores = torch.cat([scores, padding], dim=1)
@@ -422,90 +415,133 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
             max_num=self.test_cfg.nms_pre,
             cfg=self.test_cfg,
         )
+        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5))
         return bboxes, scores, labels
 
     @staticmethod
-    def _bbox_pred_to_bbox(points, distance):
-        if distance.shape[0] == 0:
-            return distance
+    def _bbox_pred_to_bbox(points, bbox_pred):
+        if bbox_pred.shape[0] == 0:
+            return bbox_pred
 
         shift = torch.stack((
-            (distance[:, 1] - distance[:, 0]) / 2,
-            (distance[:, 3] - distance[:, 2]) / 2,
-            (distance[:, 5] - distance[:, 4]) / 2
+            (bbox_pred[:, 1] - bbox_pred[:, 0]) / 2,
+            (bbox_pred[:, 3] - bbox_pred[:, 2]) / 2,
+            (bbox_pred[:, 5] - bbox_pred[:, 4]) / 2
         ), dim=-1).view(-1, 1, 3)
-        shift = rotation_3d_in_axis(shift, distance[:, 6], axis=2)[:, 0, :]
+        shift = rotation_3d_in_axis(shift, bbox_pred[:, 6], axis=2)[:, 0, :]
         center = points + shift
         size = torch.stack((
-            distance[:, 0] + distance[:, 1],
-            distance[:, 2] + distance[:, 3],
-            distance[:, 4] + distance[:, 5]
+            bbox_pred[:, 0] + bbox_pred[:, 1],
+            bbox_pred[:, 2] + bbox_pred[:, 3],
+            bbox_pred[:, 4] + bbox_pred[:, 5]
         ), dim=-1)
-        return torch.cat((center, size, distance[:, 6:7]), dim=-1)
-
-    def _centerness_target(self, bbox_targets):
-        """Compute centerness targets.
-        Args:
-            bbox_targets (Tensor): BBox targets of positive bboxes of shape
-                (n_pos, 6)
-        Returns:
-            Tensor: Centerness target
-        """
-        x_dims = bbox_targets[..., [0, 1]]
-        y_dims = bbox_targets[..., [2, 3]]
-        z_dims = bbox_targets[..., [4, 5]]
-        centerness_targets = x_dims.min(dim=-1)[0] / x_dims.max(dim=-1)[0] * \
-                             y_dims.min(dim=-1)[0] / y_dims.max(dim=-1)[0] * \
-                             z_dims.min(dim=-1)[0] / z_dims.max(dim=-1)[0]
-        return torch.sqrt(centerness_targets)
-
-
-@HEADS.register_module()
-class SUNRGBDVoxelFCOSHeadV2(SUNRGBDVoxelFCOSHead):
-    def forward_single(self, x, scale):
-        reg = self.reg_convs(x)
-        cls = self.cls_convs(x)
-        reg_final = torch.exp(scale(self.reg_conv(reg)))
-        return (
-            self.centerness_conv(reg),
-            reg_final,
-            self.cls_conv(cls)
-        )
-
-    def _bbox_pred_to_loss(self, points, bbox_preds):
-        return self._bbox_pred_to_bbox_v2(points, bbox_preds)
-
-    def _bbox_pred_to_result(self, points, bbox_preds):
-        return self._bbox_pred_to_bbox_v2(points, bbox_preds)
-
-    @staticmethod
-    def _bbox_pred_to_bbox_v2(points, bbox_preds):
-        x = points[:, 0] + (bbox_preds[:, 1] - bbox_preds[:, 0]) / 2.
-        y = points[:, 1] + (bbox_preds[:, 3] - bbox_preds[:, 2]) / 2.
-        z = points[:, 2] + (bbox_preds[:, 5] - bbox_preds[:, 4]) / 2.
-        dim_x = bbox_preds[:, 0] + bbox_preds[:, 1]
-        dim_y = bbox_preds[:, 2] + bbox_preds[:, 3]
-        dim_z = bbox_preds[:, 4] + bbox_preds[:, 5]
-        alpha = torch.zeros_like(x)
-        return torch.stack((x, y, z, dim_x, dim_y, dim_z, alpha), -1)
-
-
-from mmdet3d.core.post_processing import aligned_3d_nms
+        return torch.cat((center, size, bbox_pred[:, 6:7]), dim=-1)
 
 
 @HEADS.register_module()
 class ScanNetVoxelFCOSHead(VoxelFCOSHead):
     def forward_single(self, x, scale):
-        raise NotImplementedError
+        reg = self.reg_convs(x)
+        cls = self.cls_convs(x)
+        return (
+            self.centerness_conv(reg),
+            torch.exp(scale(self.reg_conv(reg))),
+            self.cls_conv(cls)
+        )
 
     def _bbox_pred_to_loss(self, points, bbox_preds):
-        raise NotImplementedError
+        return self._bbox_pred_to_bbox(points, bbox_preds)
 
     def _bbox_pred_to_result(self, points, bbox_preds):
-        raise NotImplementedError
+        return self._bbox_pred_to_bbox(points, bbox_preds)
 
+    @torch.no_grad()
     def get_targets(self, points, gt_bboxes, gt_labels):
-        raise NotImplementedError
+        assert len(points) == len(self.regress_ranges)
+        # expand regress ranges to align with points
+        expanded_regress_ranges = [
+            points[i].new_tensor(self.regress_ranges[i]).expand(len(points[i]), 2)
+            for i in range(len(points))
+        ]
+        # concat all levels points and regress ranges
+        regress_ranges = torch.cat(expanded_regress_ranges, dim=0)
+        points = torch.cat(points, dim=0)
 
-    def _nms(self, bboxes, scores):
-        raise NotImplementedError
+        # below is based on FCOSHead._get_target_single
+        n_points = len(points)
+        n_boxes = len(gt_bboxes)
+        volumes = gt_bboxes.volume.to(points.device)
+        volumes = volumes.expand(n_points, n_boxes).contiguous()
+        regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.dims), dim=1)
+        gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 6)
+        xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
+        xs = xs[:, None].expand(n_points, n_boxes)
+        ys = ys[:, None].expand(n_points, n_boxes)
+        zs = zs[:, None].expand(n_points, n_boxes)
+
+        dx_min = xs - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
+        dx_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - xs
+        dy_min = ys - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
+        dy_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - ys
+        dz_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
+        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
+        bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max), dim=-1)
+
+        # condition1: inside a gt bbox
+        inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
+
+        # condition2: limit the regression range for each location
+        max_regress_distance = bbox_targets.max(-1)[0]
+        inside_regress_range = (
+                (max_regress_distance >= regress_ranges[..., 0])
+                & (max_regress_distance <= regress_ranges[..., 1]))
+
+        # if there are still more than one objects for a location,
+        # we choose the one with minimal area
+        volumes[inside_gt_bbox_mask == 0] = INF
+        volumes[inside_regress_range == 0] = INF
+        min_area, min_area_inds = volumes.min(dim=1)
+
+        labels = gt_labels[min_area_inds]
+        labels[min_area == INF] = self.n_classes  # set as BG
+        bbox_targets = bbox_targets[range(n_points), min_area_inds]
+        centerness_targets = compute_centerness(bbox_targets)
+
+        return centerness_targets, self._bbox_pred_to_bbox(points, bbox_targets), labels
+
+    def _nms(self, bboxes, scores, img_meta):
+        scores, labels = scores.max(dim=1)
+        ids = aligned_3d_nms(bboxes, scores, labels, self.test_cfg.iou_thr)
+        bboxes = bboxes[ids]
+        bboxes = torch.stack((
+            (bboxes[:, 0] + bboxes[:, 3]) / 2.,
+            (bboxes[:, 1] + bboxes[:, 4]) / 2.,
+            (bboxes[:, 2] + bboxes[:, 5]) / 2.,
+            bboxes[:, 3] - bboxes[:, 0],
+            bboxes[:, 4] - bboxes[:, 1],
+            bboxes[:, 5] - bboxes[:, 2]
+        ), dim=1)
+        bboxes = img_meta['box_type_3d'](bboxes, origin=(.5, .5, .5), box_dim=6, with_yaw=False)
+        return bboxes, scores[ids], labels[ids]
+
+    def _bbox_pred_to_bbox(self, points, bbox_pred):
+        return torch.stack([
+            points[:, 0] - bbox_pred[:, 0],
+            points[:, 1] - bbox_pred[:, 2],
+            points[:, 2] - bbox_pred[:, 4],
+            points[:, 0] + bbox_pred[:, 1],
+            points[:, 1] + bbox_pred[:, 3],
+            points[:, 2] + bbox_pred[:, 5]
+        ], -1)
+
+
+def compute_centerness(bbox_targets):
+    x_dims = bbox_targets[..., [0, 1]]
+    y_dims = bbox_targets[..., [2, 3]]
+    z_dims = bbox_targets[..., [4, 5]]
+    centerness_targets = x_dims.min(dim=-1)[0] / x_dims.max(dim=-1)[0] * \
+                         y_dims.min(dim=-1)[0] / y_dims.max(dim=-1)[0] * \
+                         z_dims.min(dim=-1)[0] / z_dims.max(dim=-1)[0]
+    # todo: sqrt ?
+    return torch.sqrt(centerness_targets)

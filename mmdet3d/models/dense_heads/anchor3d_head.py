@@ -376,6 +376,7 @@ class Anchor3DHead(nn.Module, AnchorTrainMixin):
                    cls_scores,
                    bbox_preds,
                    dir_cls_preds,
+                   valid,
                    input_metas,
                    cfg=None,
                    rescale=False):
@@ -393,6 +394,7 @@ class Anchor3DHead(nn.Module, AnchorTrainMixin):
         Returns:
             list[tuple]: Prediction resultes of batches.
         """
+        # todo: support valid in separate class
         assert len(cls_scores) == len(bbox_preds)
         assert len(cls_scores) == len(dir_cls_preds)
         num_levels = len(cls_scores)

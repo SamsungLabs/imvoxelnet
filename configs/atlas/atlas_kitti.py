@@ -41,9 +41,9 @@ model = dict(
             loss_weight=1.0),
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=2.0),
         loss_dir=dict(
-            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)))
-n_voxels = (216, 248, 4)
-voxel_size = (.32, .32, 1.)
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
+    n_voxels=(216, 248, 4),
+    voxel_size=(.32, .32, 1.))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
@@ -54,9 +54,7 @@ train_cfg = dict(
         ignore_iof_thr=-1),
     allowed_border=0,
     pos_weight=-1,
-    debug=False,
-    n_voxels=n_voxels,
-    voxel_size=voxel_size)
+    debug=False)
 test_cfg = dict(
     use_rotate_nms=True,
     nms_across_levels=False,
@@ -64,9 +62,7 @@ test_cfg = dict(
     score_thr=0.1,
     min_bbox_size=0,
     nms_pre=100,
-    max_num=50,
-    n_voxels=n_voxels,
-    voxel_size=voxel_size)
+    max_num=50)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'KittiMultiViewDataset'
@@ -89,7 +85,6 @@ train_pipeline = [
         ]),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
-    # dict(type='RandomShiftOrigin', std=.1),  # todo: <-
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
