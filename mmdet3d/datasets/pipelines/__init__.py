@@ -10,7 +10,7 @@ from .transforms_3d import (BackgroundPointsFilter, GlobalRotScaleTrans,
                             ObjectSample, PointShuffle, PointsRangeFilter,
                             RandomFlip3D, VoxelBasedPointSampler)
 from .specific import (NuScenesMultiViewPipeline, ScanNetMultiViewPipeline,
-                       RandomShiftOrigin, KittiSetOrigin, SUNRGBDSetOrigin)
+                       RandomShiftOrigin, KittiSetOrigin, SUNRGBDSetOrigin, SUNRGBDTotalLoadImageFromFile)
 
 __all__ = [
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
