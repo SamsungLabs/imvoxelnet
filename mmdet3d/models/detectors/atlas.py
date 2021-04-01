@@ -45,15 +45,21 @@ class AtlasDetector(BaseDetector):
         x = self.neck(x)[0]
         x = x.reshape([batch_size, -1] + list(x.shape[1:]))
 
+        stride = img.shape[-1] / x.shape[-1]
+        assert stride == 4  # may be removed in the future
+        stride = int(stride)
+
         volumes, valids = [], []
         for feature, img_meta in zip(x, img_metas):
-            projection = self._compute_projection(img_meta).to(x.device)
+            projection = self._compute_projection(img_meta, stride).to(x.device)
             points = get_points(
                 n_voxels=torch.tensor(self.n_voxels),
                 voxel_size=torch.tensor(self.voxel_size),
                 origin=torch.tensor(img_meta['lidar2img']['origin'])
             ).to(x.device)
-            volume, valid = backproject(feature, points, projection)
+            height = img_meta['img_shape'][0] // stride
+            width = img_meta['img_shape'][1] // stride
+            volume, valid = backproject(feature[:, :, :height, :width], points, projection)
             volume = volume.sum(dim=0)
             valid = valid.sum(dim=0)
             volume = volume / valid
@@ -90,12 +96,10 @@ class AtlasDetector(BaseDetector):
         pass
 
     @staticmethod
-    def _compute_projection(img_meta):
+    def _compute_projection(img_meta, stride):
         projection = []
         intrinsic = torch.tensor(img_meta['lidar2img']['intrinsic'][:3, :3])
-        # todo: it is not the best idea
-        # also padding must be supported while backprojecting
-        ratio = img_meta['ori_shape'][0] / (img_meta['img_shape'][0] / 4)
+        ratio = img_meta['ori_shape'][0] / (img_meta['img_shape'][0] / stride)
         intrinsic[:2] /= ratio
         for extrinsic in img_meta['lidar2img']['extrinsic']:
             projection.append(intrinsic @ torch.tensor(extrinsic[:3]))
