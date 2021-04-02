@@ -45,6 +45,7 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
+    dict(type='RandomShiftOrigin', std=.2),
     dict(
         type='ScanNetMultiViewPipeline',
         n_images=1,
