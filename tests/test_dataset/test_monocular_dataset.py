@@ -49,6 +49,7 @@ def run_multi_view_dataset(dataset):
             img[:, rr[mask], cc[mask]] = val[mask] * 255
     skimage.io.imsave('./work_dirs/tmp/1.png', np.transpose(img, (1, 2, 0)))
 
+
 def test_scannet_multi_view_dataset():
     data_root = './data/scannet/'
     class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
@@ -79,7 +80,6 @@ def test_scannet_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-
 def test_sunrgbd_multi_view_dataset():
     data_root = './data/sunrgbd/'
     class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
@@ -108,7 +108,7 @@ def test_sunrgbd_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-def test_kitti_dataset():
+def test_kitti_multi_view_dataset():
     data_root = 'data/kitti/'
     class_names = ['Car']
     input_modality = dict(use_lidar=False, use_camera=True)
@@ -122,10 +122,10 @@ def test_kitti_dataset():
             transforms=[
                 dict(type='LoadImageFromFile'),
                 dict(type='Resize', img_scale=(1280, 384), keep_ratio=True),
-                dict(type='Pad', size=(384, 1280))
-            ]),
+                dict(type='Pad', size=(384, 1280))],
+            post_transforms=[dict(type='KittiRandomFlip')]),
         dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-        dict(type='KITTISetOrigin', point_cloud_range=point_cloud_range),
+        dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
     dataset = KittiMultiViewDataset(
@@ -139,4 +139,5 @@ def test_kitti_dataset():
         test_mode=False)
     run_multi_view_dataset(dataset)
 
-test_sunrgbd_multi_view_dataset()
+
+test_kitti_multi_view_dataset()
