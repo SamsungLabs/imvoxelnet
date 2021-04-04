@@ -50,10 +50,10 @@ train_pipeline = [
         n_images=1,
         transforms=[
             dict(type='SUNRGBDTotalLoadImageFromFile'),
-            dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
+            dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size=(480, 640))
-        ]),
+            dict(type='Pad', size_divisor=32)],
+        post_transforms=[]),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -64,8 +64,8 @@ test_pipeline = [
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size=(480, 640))
-        ]),
+            dict(type='Pad', size_divisor=32)],
+        post_transforms=[]),
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
 data = dict(
