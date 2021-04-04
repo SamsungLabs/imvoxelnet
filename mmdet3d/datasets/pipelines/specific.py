@@ -28,8 +28,9 @@ class NuScenesMultiViewPipeline:
 
 @PIPELINES.register_module()
 class ScanNetMultiViewPipeline:
-    def __init__(self, transforms, n_images):
+    def __init__(self, transforms, post_transforms, n_images):
         self.transforms = Compose(transforms)
+        self.post_transforms = Compose(post_transforms)
         self.n_images = n_images
 
     def __call__(self, results):
@@ -54,15 +55,11 @@ class ScanNetMultiViewPipeline:
             imgs.append(_results['img'])
             extrinsics.append(results['lidar2img']['extrinsic'][i])
         for key in _results.keys():
-            if key not in ['img', 'lidar2img', 'img_prefix', 'img_info']:
+            if key not in ['img', 'img_prefix', 'img_info']:
                 results[key] = _results[key]
-
-        # this can not be done before because of absence of 'ori_shape'
-        if results['flip']:
-            results['lidar2img']['intrinsic'][0] *= -1
-            results['lidar2img']['intrinsic'][0, 2] += results['ori_shape'][1]
         results['img'] = imgs
         results['lidar2img']['extrinsic'] = extrinsics
+        results = self.post_transforms(results)
         return results
 
 
@@ -85,6 +82,31 @@ class KittiSetOrigin:
 
     def __call__(self, results):
         results['lidar2img']['origin'] = self.origin.copy()
+        return results
+
+
+@PIPELINES.register_module()
+class KittiRandomFlip:
+    def __call__(self, results):
+        if results['flip']:
+            results['lidar2img']['intrinsic'][0, 2] = -results['lidar2img']['intrinsic'][0, 2] + \
+                                                      results['ori_shape'][1]
+            flip_matrix_0 = np.eye(4, dtype=np.float32)
+            flip_matrix_0[0, 0] *= -1
+            flip_matrix_1 = np.eye(4, dtype=np.float32)
+            flip_matrix_1[1, 1] *= -1
+            extrinsic = results['lidar2img']['extrinsic'][0]
+            extrinsic = flip_matrix_0 @ extrinsic @ flip_matrix_1.T
+            results['lidar2img']['extrinsic'][0] = extrinsic
+            boxes = results['gt_bboxes_3d'].tensor.numpy()
+            center = boxes[:, :3]
+            alpha = boxes[:, 6]
+            phi = np.arctan2(center[:, 0], -center[:, 1]) - alpha
+            center_flip = center
+            center_flip[:, 1] *= -1
+            alpha_flip = np.arctan2(center_flip[:, 0], -center_flip[:, 1]) + phi
+            boxes_flip = np.concatenate([center_flip, boxes[:, 3:6], alpha_flip[:, None]], 1)
+            results['gt_bboxes_3d'] = results['box_type_3d'](boxes_flip)
         return results
 
 
