@@ -10,6 +10,7 @@ from .fcos_3d_head import FCOS3DHead
 from .fcos_3d_head_v2 import FCOS3DHeadV2
 from .transformer_3d_head import Transformer3DHead
 from .voxel_fcos_head import SUNRGBDVoxelFCOSHead, ScanNetVoxelFCOSHead
+from .layout_head import LayoutHead
 
 __all__ = [
     'Anchor3DHead', 'FreeAnchor3DHead', 'PartA2RPNHead', 'VoteHead',

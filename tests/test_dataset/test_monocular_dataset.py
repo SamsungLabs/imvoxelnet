@@ -1,7 +1,34 @@
 import skimage.io
 import skimage.draw
 import numpy as np
-from mmdet3d.datasets import ScanNetMultiViewDataset, SUNRGBDMultiViewDataset, KittiMultiViewDataset
+from mmdet3d.datasets import (
+    ScanNetMultiViewDataset, SUNRGBDMultiViewDataset, SUNRGBDTotalMultiViewDataset, KittiMultiViewDataset
+)
+
+
+def draw_corners(img, corners, projection):
+    corners_3d_4 = np.concatenate((corners, np.ones((8, 1))), axis=1)
+    corners_2d_3 = corners_3d_4 @ projection.T
+    z_mask = corners_2d_3[:, 2] > 0
+    corners_2d = corners_2d_3[:, :2] / corners_2d_3[:, 2:]
+    corners_2d = corners_2d.astype(np.int)
+    print(corners_2d)
+    for i, j in [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7]
+    ]:
+        if z_mask[i] and z_mask[j]:
+            ci = corners_2d[i]
+            cj = corners_2d[j]
+            rr, cc, val = skimage.draw.line_aa(ci[1], ci[0], cj[1], cj[0])
+            mask = np.logical_and.reduce((
+                rr >= 0,
+                rr < img.shape[1],
+                cc >= 0,
+                cc < img.shape[2]
+            ))
+            img[:, rr[mask], cc[mask]] = val[mask] * 255
 
 
 def run_multi_view_dataset(dataset):
@@ -23,30 +50,11 @@ def run_multi_view_dataset(dataset):
         data['gt_bboxes_3d']._data.corners.numpy(),
         data['gt_labels_3d']._data.numpy()
     ):
-        corners_3d_4 = np.concatenate((corners, np.ones((8, 1))), axis=1)
-        corners_2d_3 = corners_3d_4 @ projection.T  # (projection @ corners_3d_4.T).T
-        if np.any(corners_2d_3[:, 2] < 0):
-            print('z < 0')
-            continue
         print(dataset.CLASSES[label])
-        corners_2d = corners_2d_3[:, :2] / corners_2d_3[:, 2:]
-        corners_2d = corners_2d.astype(np.int)
-        print(corners_2d)
-        for i, j in [
-            [0, 1], [1, 2], [2, 3], [3, 0],
-            [4, 5], [5, 6], [6, 7], [7, 4],
-            [0, 4], [1, 5], [2, 6], [3, 7]
-        ]:
-            ci = corners_2d[i]
-            cj = corners_2d[j]
-            rr, cc, val = skimage.draw.line_aa(ci[1], ci[0], cj[1], cj[0])
-            mask = np.logical_and.reduce((
-                rr >= 0,
-                rr < img.shape[1],
-                cc >= 0,
-                cc < img.shape[2]
-            ))
-            img[:, rr[mask], cc[mask]] = val[mask] * 255
+        draw_corners(img, corners, projection)
+    if 'layout' in img_meta['lidar2img']:
+        print('layout')
+        draw_corners(img, img_meta['lidar2img']['layout'].corners.numpy()[0], projection)
     skimage.io.imsave('./work_dirs/tmp/1.png', np.transpose(img, (1, 2, 0)))
 
 
@@ -80,7 +88,7 @@ def test_scannet_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-def test_sunrgbd_multi_view_dataset():
+def test_sunrgbd_multi_view_dataset(dataset_type):
     data_root = './data/sunrgbd/'
     class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
                    'night_stand', 'sink', 'lamp')
@@ -92,12 +100,12 @@ def test_sunrgbd_multi_view_dataset():
             transforms=[
                 dict(type='SUNRGBDTotalLoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-                dict(type='Pad', size=(480, 640))
-            ]),
+                dict(type='Pad', size=(480, 640))],
+            post_transforms=[]),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
-    dataset = SUNRGBDMultiViewDataset(
+    dataset = dataset_type(
         data_root=data_root,
         ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
         pipeline=pipeline,
@@ -140,4 +148,4 @@ def test_kitti_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-test_kitti_multi_view_dataset()
+test_sunrgbd_multi_view_dataset(SUNRGBDTotalMultiViewDataset)
