@@ -14,6 +14,7 @@ class AtlasDetector(BaseDetector):
                  bbox_head,
                  n_voxels,
                  voxel_size,
+                 head_2d=None,
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None):
@@ -25,6 +26,7 @@ class AtlasDetector(BaseDetector):
         bbox_head.update(test_cfg=test_cfg)
         self.bbox_head = build_head(bbox_head)
         self.bbox_head.voxel_size = voxel_size
+        self.head_2d = build_head(head_2d) if head_2d is not None else None
         self.n_voxels = n_voxels
         self.voxel_size = voxel_size
         self.train_cfg = train_cfg
@@ -37,11 +39,14 @@ class AtlasDetector(BaseDetector):
         self.neck.init_weights()
         self.neck_3d.init_weights()
         self.bbox_head.init_weights()
+        if self.head_2d is not None:
+            self.head_2d.init_weights()
 
-    def extract_feat(self, img, img_metas):
+    def extract_feat(self, img, img_metas, mode):
         batch_size = img.shape[0]
         img = img.reshape([-1] + list(img.shape)[2:])
         x = self.backbone(img)
+        features_2d = self.head_2d.forward(x[-1], img_metas) if self.head_2d is not None else None
         x = self.neck(x)[0]
         x = x.reshape([batch_size, -1] + list(x.shape[1:]))
 
@@ -51,7 +56,9 @@ class AtlasDetector(BaseDetector):
 
         volumes, valids = [], []
         for feature, img_meta in zip(x, img_metas):
-            projection = self._compute_projection(img_meta, stride).to(x.device)
+            # use predicted pitch and roll for SUNRGBDTotal test
+            angles = features_2d[0] if features_2d is not None and mode == 'test' else None
+            projection = self._compute_projection(img_meta, stride, angles).to(x.device)
             points = get_points(
                 n_voxels=torch.tensor(self.n_voxels),
                 voxel_size=torch.tensor(self.voxel_size),
@@ -70,12 +77,13 @@ class AtlasDetector(BaseDetector):
         x = torch.stack(volumes)
         valids = torch.stack(valids)
         x = self.neck_3d(x)
-        return x, valids
-
+        return x, valids, features_2d
 
     def forward_train(self, img, img_metas, gt_bboxes_3d, gt_labels_3d, **kwargs):
-        x, valids = self.extract_feat(img, img_metas)
+        x, valids, features_2d = self.extract_feat(img, img_metas, 'train')
         losses = self.bbox_head.forward_train(x, valids.float(), img_metas, gt_bboxes_3d, gt_labels_3d)
+        if self.head_2d is not None:
+            losses.update(self.head_2d.loss(*features_2d, img_metas))
         return losses
 
     def forward_test(self, img, img_metas, **kwargs):
@@ -83,25 +91,32 @@ class AtlasDetector(BaseDetector):
         return self.simple_test(img, img_metas)
 
     def simple_test(self, img, img_metas):
-        x, valids = self.extract_feat(img, img_metas)
+        x, valids, features_2d = self.extract_feat(img, img_metas, 'test')
         x = self.bbox_head(x)
         bbox_list = self.bbox_head.get_bboxes(*x, valids.float(), img_metas)
         bbox_results = [
             bbox3d2result(det_bboxes, det_scores, det_labels)
             for det_bboxes, det_scores, det_labels in bbox_list
         ]
+        if self.head_2d is not None:
+            bbox_results += self.head_2d.get_bboxes(*features_2d, img_metas)
         return bbox_results
 
     def aug_test(self, imgs, img_metas):
         pass
 
     @staticmethod
-    def _compute_projection(img_meta, stride):
+    def _compute_projection(img_meta, stride, angles):
         projection = []
         intrinsic = torch.tensor(img_meta['lidar2img']['intrinsic'][:3, :3])
         ratio = img_meta['ori_shape'][0] / (img_meta['img_shape'][0] / stride)
         intrinsic[:2] /= ratio
-        for extrinsic in img_meta['lidar2img']['extrinsic']:
+        # use predicted pitch and roll for SUNRGBDTotal test
+        if angles is not None:
+            extrinsics = get_extrinsics(angles)
+        else:
+            extrinsics = img_meta['lidar2img']['extrinsic']
+        for extrinsic in extrinsics:
             projection.append(intrinsic @ torch.tensor(extrinsic[:3]))
         return torch.stack(projection)
 
@@ -135,3 +150,30 @@ def backproject(features, points, projection):
     volume = volume.view(n_images, n_channels, n_x_voxels, n_y_voxels, n_z_voxels)
     valid = valid.view(n_images, 1, n_x_voxels, n_y_voxels, n_z_voxels)
     return volume, valid
+
+
+# for SUNRGBDTotal test
+def get_extrinsics(angles):
+    yaw = angles.new_zeros(())
+    pitch, roll = angles
+    r = angles.new_zeros((3, 3))
+    r[0, 0] = torch.cos(yaw) * torch.cos(pitch)
+    r[0, 1] = torch.sin(yaw) * torch.sin(roll) - torch.cos(yaw) * torch.cos(roll) * torch.sin(pitch)
+    r[0, 2] = torch.cos(roll) * torch.sin(yaw) + torch.cos(yaw) * torch.sin(pitch) * torch.sin(roll)
+    r[1, 0] = torch.sin(pitch)
+    r[1, 1] = torch.cos(pitch) * torch.cos(roll)
+    r[1, 2] = -torch.cos(pitch) * torch.sin(roll)
+    r[2, 0] = -torch.cos(pitch) * torch.sin(yaw)
+    r[2, 1] = torch.cos(yaw) * torch.sin(roll) + torch.cos(roll) * torch.sin(yaw) * torch.sin(pitch)
+    r[2, 2] = torch.cos(yaw) * torch.cos(roll) - torch.sin(yaw) * torch.sin(pitch) * torch.sin(roll)
+
+    # follow Total3DUnderstanding
+    t = angles.new_tensor([[0., 0., 1.], [0., -1., 0.], [-1., 0., 0.]])
+    r = t @ r.T
+    # follow DepthInstance3DBoxes
+    r = r[:, [2, 0, 1]]
+    r[2] *= -1
+    extrinsic = angles.new_zeros((4, 4))
+    extrinsic[:3, :3] = r
+    extrinsic[3, 3] = 1.
+    return [extrinsic]

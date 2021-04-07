@@ -21,6 +21,11 @@ def run(path):
     info = []
     for image_data in data['images']:
         r = np.array(image_data['rot_mat'])
+        yaw = np.arctan(-r[2][0] / r[0][0])
+        pitch = np.arctan(r[1][0] / np.sqrt(r[0][0] ** 2 + r[2][0] ** 2))
+        roll = np.arctan(-r[1][2] / r[1][1])
+        assert(np.isclose(yaw, 0))
+
         # follow Total3DUnderstanding
         t = np.array([[0., 0., 1.], [0., -1., 0.], [-1., 0., 0.]])
         r = t @ r.T
@@ -41,6 +46,16 @@ def run(path):
                 'K': np.array(image_data['K']).T,
                 'Rt': r
             },
+            'layout': np.array([
+                image_data['room_center'][2],
+                image_data['room_center'][0],
+                image_data['room_center'][1],
+                image_data['room_size'][2],
+                image_data['room_size'][0],
+                image_data['room_size'][1],
+                -image_data['room_angle']
+            ]),
+            'angles': np.array([pitch, roll]),
             'annos': {
                 'class': [],
                 'gt_boxes_upright_depth': []
