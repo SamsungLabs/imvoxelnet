@@ -85,6 +85,40 @@ class AtlasNeckV3(nn.Module):
         pass
 
 
+@NECKS.register_module()
+class AtlasNeckV4(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv3d(in_channels, in_channels, 3, padding=1),
+            nn.BatchNorm3d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels, in_channels, 3, stride=(1, 1, 2), padding=1),
+            nn.BatchNorm3d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels, in_channels * 2, 3, padding=1),
+            nn.BatchNorm3d(in_channels * 2),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels * 2, in_channels * 2, 3, stride=(1, 1, 2), padding=1),
+            nn.BatchNorm3d(in_channels * 2),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels * 2, in_channels * 4, 3, padding=1),
+            nn.BatchNorm3d(in_channels * 4),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels * 4, out_channels, 3, stride=(1, 1, 2), padding=1),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    @auto_fp16()
+    def forward(self, x):
+        x = self.model.forward(x)
+        return [x[..., 0].transpose(-1, -2)]
+
+    def init_weights(self):
+        pass
+
+
 # Everything below is copied from https://github.com/magicleap/Atlas/blob/master/atlas/backbone3d.py
 def get_norm_3d(norm, out_channels):
     """ Get a normalization module for 3D tensors
