@@ -1,4 +1,5 @@
 from .anchor3d_head import Anchor3DHead
+from .anchor3d_head_v2 import Anchor3DHeadV2
 from .base_conv_bbox_head import BaseConvBboxHead
 from .centerpoint_head import CenterHead
 from .free_anchor3d_head import FreeAnchor3DHead

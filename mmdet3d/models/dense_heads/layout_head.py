@@ -86,7 +86,15 @@ class LayoutHead(nn.Module):
 
     def _loss_single(self, angles, layout, img_meta):
         gt_angles = angles.new_tensor(img_meta['lidar2img']['angles'])
-        angle_loss = self.loss_angle(angles, gt_angles)
+        pitch_loss = self.loss_angle(
+            torch.sin(angles[0]) * torch.cos(gt_angles[0]),
+            torch.cos(angles[0]) * torch.sin(gt_angles[0])
+        )
+        roll_loss = self.loss_angle(
+            torch.sin(angles[1]) * torch.cos(gt_angles[1]),
+            torch.cos(angles[1]) * torch.sin(gt_angles[1])
+        )
+        angle_loss = pitch_loss + roll_loss
         gt_layout = img_meta['lidar2img']['layout']
         gt_layout = torch.cat((
             gt_layout.gravity_center,
