@@ -79,6 +79,7 @@ train_pipeline = [
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='RandomFlip'),
+            dict(type='PhotoMetricDistortion'),
             dict(
                 type='Resize',
                 img_scale=[(1173, 352), (1387, 416)],
