@@ -213,8 +213,8 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                 and direction, respectively.
         """
         # classification loss
-        # if num_total_samples is None:
-        #     num_total_samples = int(cls_score.shape[0])
+        if num_total_samples is None:
+            num_total_samples = int(cls_score.shape[0])
         labels = labels.reshape(-1)
         label_weights = label_weights.reshape(-1)
         valid = valid.sum(dim=-1) > 0
@@ -222,12 +222,15 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
         cls_score = cls_score.permute(0, 2, 3, 1).reshape(-1, self.num_classes)
         valid = valid.permute(0, 2, 3, 1).reshape(-1)
         assert labels.max().item() <= self.num_classes
-        num_total_samples = max(((labels == 0) & valid).sum(), 1.)
+        # num_total_samples = max(((labels == 0) & valid).sum(), 1.)
 
-        # todo: avg_factor is very dirty
-        loss_cls = self.loss_cls(
-            cls_score[valid], labels[valid], label_weights[valid],
-            avg_factor=num_total_samples)
+        if ((labels == 0) & valid).sum() > .0:
+            loss_cls = self.loss_cls(
+                cls_score[valid], labels[valid], label_weights[valid],
+                avg_factor=num_total_samples)
+        else:
+            print('!')
+            loss_cls = cls_score.new_zeros(())
 
         # regression loss
         bbox_pred = bbox_pred.permute(0, 2, 3,
@@ -404,9 +407,8 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
         Returns:
             list[tuple]: Prediction resultes of batches.
         """
-        # todo: support valid in separate class
-        assert len(cls_scores) == len(bbox_preds)
-        assert len(cls_scores) == len(dir_cls_preds)
+        assert len(cls_scores) == len(bbox_preds) == 1
+        assert len(cls_scores) == len(dir_cls_preds) == 1
         num_levels = len(cls_scores)
         featmap_sizes = [cls_scores[i].shape[-2:] for i in range(num_levels)]
         device = cls_scores[0].device
@@ -430,7 +432,7 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
 
             input_meta = input_metas[img_id]
             proposals = self.get_bboxes_single(cls_score_list, bbox_pred_list,
-                                               dir_cls_pred_list, mlvl_anchors,
+                                               dir_cls_pred_list, valid, mlvl_anchors,
                                                input_meta, cfg, rescale)
             result_list.append(proposals)
         return result_list
@@ -439,6 +441,7 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                           cls_scores,
                           bbox_preds,
                           dir_cls_preds,
+                          valids,
                           mlvl_anchors,
                           input_meta,
                           cfg=None,
@@ -464,23 +467,28 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                 - labels (torch.Tensor): Label of each bbox.
         """
         cfg = self.test_cfg if cfg is None else cfg
-        assert len(cls_scores) == len(bbox_preds) == len(mlvl_anchors)
+        assert len(cls_scores) == len(bbox_preds) == len(mlvl_anchors) == 1
         mlvl_bboxes = []
         mlvl_scores = []
         mlvl_dir_scores = []
-        for cls_score, bbox_pred, dir_cls_pred, anchors in zip(
-                cls_scores, bbox_preds, dir_cls_preds, mlvl_anchors):
+        for cls_score, bbox_pred, dir_cls_pred, valid, anchors in zip(
+                cls_scores, bbox_preds, dir_cls_preds, valids, mlvl_anchors):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
             assert cls_score.size()[-2:] == dir_cls_pred.size()[-2:]
             dir_cls_pred = dir_cls_pred.permute(1, 2, 0).reshape(-1, 2)
             dir_cls_score = torch.max(dir_cls_pred, dim=-1)[1]
 
-            cls_score = cls_score.permute(1, 2,
-                                          0).reshape(-1, self.num_classes)
+            valid = valid.sum(dim=-1) > 0
+            valid = valid.transpose(-1, -2).expand(cls_score.shape)
+            cls_score = cls_score.permute(1, 2, 0).reshape(-1, self.num_classes)
+            valid = valid.permute(1, 2, 0).reshape(-1, 1)
+
             if self.use_sigmoid_cls:
                 scores = cls_score.sigmoid()
             else:
                 scores = cls_score.softmax(-1)
+            scores = scores * valid
+
             bbox_pred = bbox_pred.permute(1, 2,
                                           0).reshape(-1, self.box_code_size)
 
