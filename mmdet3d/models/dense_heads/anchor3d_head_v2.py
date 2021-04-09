@@ -229,7 +229,6 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                 cls_score[valid], labels[valid], label_weights[valid],
                 avg_factor=num_total_samples)
         else:
-            print('!')
             loss_cls = cls_score.new_zeros(())
 
         # regression loss
