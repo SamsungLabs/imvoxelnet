@@ -7,7 +7,7 @@ from torch import nn as nn
 from mmdet3d.core import (PseudoSampler, box3d_multiclass_nms, limit_period,
                           xywhr2xyxyr)
 from mmdet.core import (build_anchor_generator, build_assigner,
-                        build_bbox_coder, build_sampler, multi_apply)
+                        build_bbox_coder, build_sampler, multi_apply, reduce_mean)
 from mmdet.models import HEADS
 from ..builder import build_loss
 from .train_mixins import AnchorTrainMixin
@@ -222,14 +222,6 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
         cls_score = cls_score.permute(0, 2, 3, 1).reshape(-1, self.num_classes)
         valid = valid.permute(0, 2, 3, 1).reshape(-1)
         assert labels.max().item() <= self.num_classes
-        # num_total_samples = max(((labels == 0) & valid).sum(), 1.)
-
-        if ((labels == 0) & valid).sum() > .0:
-            loss_cls = self.loss_cls(
-                cls_score[valid], labels[valid], label_weights[valid],
-                avg_factor=num_total_samples)
-        else:
-            loss_cls = cls_score.new_zeros(())
 
         # regression loss
         bbox_pred = bbox_pred.permute(0, 2, 3,
@@ -241,7 +233,11 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
         pos_inds = ((labels >= 0)
                     & (labels < bg_class_ind)
                     & valid).nonzero().reshape(-1)
-        num_pos = len(pos_inds)
+        num_pos = torch.tensor(len(pos_inds), dtype=torch.float, device=valid.device)
+        num_pos = max(reduce_mean(num_pos), 1.)
+        loss_cls = self.loss_cls(
+            cls_score[valid], labels[valid], label_weights[valid],
+            avg_factor=num_pos)
 
         pos_bbox_pred = bbox_pred[pos_inds]
         pos_bbox_targets = bbox_targets[pos_inds]
@@ -256,7 +252,7 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
             pos_dir_targets = dir_targets[pos_inds]
             pos_dir_weights = dir_weights[pos_inds]
 
-        if num_pos > 0:
+        if len(pos_inds) > 0:
             code_weight = self.train_cfg.get('code_weight', None)
             if code_weight:
                 pos_bbox_weights = pos_bbox_weights * bbox_weights.new_tensor(
@@ -268,7 +264,7 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                 pos_bbox_pred,
                 pos_bbox_targets,
                 pos_bbox_weights,
-                avg_factor=num_total_samples)
+                avg_factor=num_pos)
 
             # direction classification loss
             loss_dir = None
@@ -277,7 +273,7 @@ class Anchor3DHeadV2(nn.Module, AnchorTrainMixin):
                     pos_dir_cls_preds,
                     pos_dir_targets,
                     pos_dir_weights,
-                    avg_factor=num_total_samples)
+                    avg_factor=num_pos)
         else:
             loss_bbox = pos_bbox_pred.sum()
             if self.use_direction_classifier:
