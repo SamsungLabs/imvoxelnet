@@ -77,9 +77,8 @@ train_pipeline = [
         type='ScanNetMultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='LoadImageFromFile', to_float32=True),
+            dict(type='LoadImageFromFile'),
             dict(type='RandomFlip'),
-            dict(type='PhotoMetricDistortion'),
             dict(
                 type='Resize',
                 img_scale=[(1173, 352), (1387, 416)],
