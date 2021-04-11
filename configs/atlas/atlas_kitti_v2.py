@@ -20,7 +20,7 @@ model = dict(
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
-        type='Anchor3DHeadV2',
+        type='Anchor3DHead',
         num_classes=1,
         in_channels=256,
         feat_channels=256,
@@ -144,7 +144,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001,
+    lr=0.0001 * 8,
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
