@@ -1,14 +1,18 @@
 model = dict(
     type='AtlasDetector',
-    pretrained='torchvision://resnet50',
+    pretrained='open-mmlab://resnest50',
     backbone=dict(
-        type='ResNet',
+        type='ResNeSt',
+        stem_channels=64,
         depth=50,
+        radix=2,
+        reduction_factor=4,
+        avg_down_stride=True,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
-        norm_eval=True,
+        norm_cfg=dict(type='SyncBN', requires_grad=True),
+        norm_eval=False,
         style='pytorch'),
     neck=dict(
         type='FPN',
@@ -63,7 +67,7 @@ test_cfg = dict(
     min_bbox_size=0,
     nms_pre=100,
     max_num=50)
-img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+img_norm_cfg = dict(mean=[123.68, 116.779, 103.939], std=[58.393, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'KittiMultiViewDataset'
 data_root = 'data/kitti/'
@@ -77,9 +81,8 @@ train_pipeline = [
         type='ScanNetMultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='LoadImageFromFile', to_float32=True),
+            dict(type='LoadImageFromFile'),
             dict(type='RandomFlip'),
-            dict(type='PhotoMetricDistortion'),
             dict(
                 type='Resize',
                 img_scale=[(1173, 352), (1387, 416)],
