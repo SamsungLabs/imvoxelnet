@@ -110,7 +110,7 @@ data = dict(
     workers_per_gpu=3,
     train=dict(
         type='RepeatDataset',
-        times=2,
+        times=3,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
@@ -144,7 +144,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001 * 8,
+    lr=0.0001 * 4,
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))
