@@ -9,8 +9,6 @@ model = dict(
         frozen_stages=1,
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
-        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
-        stage_with_dcn=(False, True, True, True),
         style='pytorch'),
     neck=dict(
         type='FPN',
@@ -18,7 +16,7 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='AtlasNeckV4',
+        type='AtlasNeckV5',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
