@@ -1,18 +1,14 @@
 model = dict(
     type='AtlasDetector',
-    pretrained='open-mmlab://resnest50',
+    pretrained='torchvision://resnet50',
     backbone=dict(
-        type='ResNeSt',
-        stem_channels=64,
+        type='ResNet',
         depth=50,
-        radix=2,
-        reduction_factor=4,
-        avg_down_stride=True,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=1,
-        norm_cfg=dict(type='SyncBN', requires_grad=True),
-        norm_eval=False,
+        norm_cfg=dict(type='BN', requires_grad=False),
+        norm_eval=True,
         style='pytorch'),
     neck=dict(
         type='FPN',
@@ -20,7 +16,7 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='AtlasNeckV4',
+        type='KittiAtlasNeck',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
@@ -67,7 +63,7 @@ test_cfg = dict(
     min_bbox_size=0,
     nms_pre=100,
     max_num=50)
-img_norm_cfg = dict(mean=[123.68, 116.779, 103.939], std=[58.393, 57.12, 57.375], to_rgb=True)
+img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'KittiMultiViewDataset'
 data_root = 'data/kitti/'
@@ -110,7 +106,7 @@ test_pipeline = [
     dict(type='Collect3D', keys=['img'])]
 
 data = dict(
-    samples_per_gpu=6,
+    samples_per_gpu=2,
     workers_per_gpu=3,
     train=dict(
         type='RepeatDataset',
