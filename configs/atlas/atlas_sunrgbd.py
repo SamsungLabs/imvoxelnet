@@ -10,6 +10,11 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch'),
+    head_2d=dict(
+        type='LayoutHead',
+        n_channels=2048,
+        linear_size=128,
+        dropout=.0),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -38,7 +43,7 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SUNRGBDMultiViewDataset'
+dataset_type = 'SUNRGBDTotalMultiViewDataset'
 data_root = 'data/sunrgbd/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
                'night_stand', 'sink', 'lamp')
@@ -52,8 +57,7 @@ train_pipeline = [
             dict(type='SUNRGBDTotalLoadImageFromFile'),
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32)],
-        post_transforms=[]),
+            dict(type='Pad', size_divisor=32)]),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -64,8 +68,7 @@ test_pipeline = [
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32)],
-        post_transforms=[]),
+            dict(type='Pad', size_divisor=32)]),
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
 data = dict(

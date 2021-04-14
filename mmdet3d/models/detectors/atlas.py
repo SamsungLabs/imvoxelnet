@@ -99,7 +99,10 @@ class AtlasDetector(BaseDetector):
             for det_bboxes, det_scores, det_labels in bbox_list
         ]
         if self.head_2d is not None:
-            bbox_results += self.head_2d.get_bboxes(*features_2d, img_metas)
+            angles, layouts = self.head_2d.get_bboxes(*features_2d, img_metas)
+            for i in range(len(img)):
+                bbox_results[i]['angles'] = angles[i]
+                bbox_results[i]['layout'] = layouts[i]
         return bbox_results
 
     def aug_test(self, imgs, img_metas):
@@ -113,11 +116,13 @@ class AtlasDetector(BaseDetector):
         intrinsic[:2] /= ratio
         # use predicted pitch and roll for SUNRGBDTotal test
         if angles is not None:
-            extrinsics = get_extrinsics(angles)
+            extrinsics = []
+            for angle in angles:
+                extrinsics.append(get_extrinsics(angle).to(intrinsic.device))
         else:
-            extrinsics = img_meta['lidar2img']['extrinsic']
+            extrinsics = map(torch.tensor, img_meta['lidar2img']['extrinsic'])
         for extrinsic in extrinsics:
-            projection.append(intrinsic @ torch.tensor(extrinsic[:3]))
+            projection.append(intrinsic @ extrinsic[:3])
         return torch.stack(projection)
 
 
@@ -176,4 +181,4 @@ def get_extrinsics(angles):
     extrinsic = angles.new_zeros((4, 4))
     extrinsic[:3, :3] = r
     extrinsic[3, 3] = 1.
-    return [extrinsic]
+    return extrinsic

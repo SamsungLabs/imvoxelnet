@@ -1,5 +1,5 @@
 model = dict(
-    type='LayoutDetector',
+    type='AtlasDetector',
     pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',
@@ -14,9 +14,35 @@ model = dict(
         type='LayoutHead',
         n_channels=2048,
         linear_size=128,
-        dropout=.0))
+        dropout=.0,
+        loss_angle=dict(type='SmoothL1Loss', loss_weight=20.),
+        loss_layout=dict(type='IoU3DLoss', loss_weight=1.)),
+    neck=dict(
+        type='FPN',
+        in_channels=[256, 512, 1024, 2048],
+        out_channels=64,
+        num_outs=4),
+    neck_3d=dict(
+        type='AtlasNeck',
+        channels=[64, 128, 256, 512],
+        out_channels=64,
+        down_layers=[1, 2, 3, 4],
+        up_layers=[3, 2, 1],
+        conditional=False),
+    bbox_head=dict(
+        type='SUNRGBDVoxelFCOSHead',
+        n_classes=10,
+        n_channels=64,
+        n_convs=0,
+        n_reg_outs=7),
+    n_voxels=(80, 80, 32),
+    voxel_size=(.08, .08, .08))
 train_cfg = dict()
-test_cfg = dict()
+test_cfg = dict(
+    nms_pre=1000,
+    nms_thr=.15,
+    use_rotate_nms=True,
+    score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'SUNRGBDTotalMultiViewDataset'
@@ -59,7 +85,7 @@ data = dict(
             ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
-            filter_empty_gt=False,  # todo: ?
+            filter_empty_gt=True,
             box_type_3d='Depth')),
     val=dict(
         type=dataset_type,

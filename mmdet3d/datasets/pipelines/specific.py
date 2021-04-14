@@ -28,9 +28,8 @@ class NuScenesMultiViewPipeline:
 
 @PIPELINES.register_module()
 class ScanNetMultiViewPipeline:
-    def __init__(self, transforms, post_transforms, n_images):
+    def __init__(self, transforms, n_images):
         self.transforms = Compose(transforms)
-        self.post_transforms = Compose(post_transforms)
         self.n_images = n_images
 
     def __call__(self, results):
@@ -59,7 +58,6 @@ class ScanNetMultiViewPipeline:
                 results[key] = _results[key]
         results['img'] = imgs
         results['lidar2img']['extrinsic'] = extrinsics
-        results = self.post_transforms(results)
         return results
 
 

@@ -87,6 +87,7 @@ class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
                 return None
         return input_dict
 
+
 @DATASETS.register_module()
 class SUNRGBDTotalMultiViewDataset(SUNRGBDMultiViewDataset):
     def get_data_info(self, index):
