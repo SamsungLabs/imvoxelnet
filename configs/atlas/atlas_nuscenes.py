@@ -118,11 +118,11 @@ test_pipeline = [
     dict(type='Collect3D', keys=['img'])]
 
 data = dict(
-    samples_per_gpu=1,
-    workers_per_gpu=1,
+    samples_per_gpu=2,
+    workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=100,
+        times=1,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
