@@ -2,7 +2,8 @@ import skimage.io
 import skimage.draw
 import numpy as np
 from mmdet3d.datasets import (
-    ScanNetMultiViewDataset, SUNRGBDMultiViewDataset, SUNRGBDTotalMultiViewDataset, KittiMultiViewDataset
+    ScanNetMultiViewDataset, SUNRGBDMultiViewDataset, SUNRGBDTotalMultiViewDataset,
+    KittiMultiViewDataset, NuScenesMultiViewDataset
 )
 
 
@@ -35,15 +36,11 @@ def run_multi_view_dataset(dataset):
     data = dataset[np.random.randint(len(dataset))]
     index = np.random.randint(len(data['img']))
     img = data['img']._data.numpy()[index]
-    shape = img.shape[-2:]
     img_meta = data['img_metas']._data
     extrinsic = img_meta['lidar2img']['extrinsic'][index]
     intrinsic = np.copy(img_meta['lidar2img']['intrinsic'][:3, :3])
-    # check if only one side is padded
-    assert img_meta['img_shape'][0] == img_meta['pad_shape'][0] or \
-           img_meta['img_shape'][1] == img_meta['pad_shape'][1]
-    dim = 0 if img_meta['img_shape'][0] == img_meta['pad_shape'][0] else 1
-    ratio = img_meta['ori_shape'][dim] / shape[dim]
+    stride = 1
+    ratio = img_meta['ori_shape'][0] / (img_meta['img_shape'][0] / stride)
     intrinsic[:2] /= ratio
     projection = intrinsic @ extrinsic[:3]
     for corners, label in zip(
@@ -100,8 +97,7 @@ def test_sunrgbd_multi_view_dataset(dataset_type):
             transforms=[
                 dict(type='SUNRGBDTotalLoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
-                dict(type='Pad', size=(480, 640))],
-            post_transforms=[]),
+                dict(type='Pad', size=(480, 640))]),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
@@ -130,8 +126,8 @@ def test_kitti_multi_view_dataset():
             transforms=[
                 dict(type='LoadImageFromFile'),
                 dict(type='Resize', img_scale=(1280, 384), keep_ratio=True),
-                dict(type='Pad', size=(384, 1280))],
-            post_transforms=[dict(type='KittiRandomFlip')]),
+                dict(type='Pad', size=(384, 1280))]),
+        dict(type='KittiRandomFlip'),
         dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
         dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
@@ -148,4 +144,41 @@ def test_kitti_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-test_sunrgbd_multi_view_dataset(SUNRGBDTotalMultiViewDataset)
+def test_nuscenes_multi_view_dataset():
+    point_cloud_range = [-50, -50, -5, 50, 50, 3]
+    class_names = [
+        'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
+        'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
+    ]
+    data_root = 'data/nuscenes/'
+    input_modality = dict(
+        use_lidar=False,
+        use_camera=True,
+        use_radar=False,
+        use_map=False,
+        use_external=False)
+    train_pipeline = [
+        dict(type='LoadAnnotations3D'),
+        dict(
+            type='ScanNetMultiViewPipeline',
+            n_images=6,
+            transforms=[
+                dict(type='LoadImageFromFile'),
+                dict(type='Resize', img_scale=(1600, 900), keep_ratio=True),
+                dict(type='Pad', size_divisor=32)]),
+        dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+        dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
+        dict(type='DefaultFormatBundle3D', class_names=class_names),
+        dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
+    dataset = NuScenesMultiViewDataset(
+        data_root=data_root,
+        ann_file=data_root + 'nuscenes_infos_train.pkl',
+        pipeline=train_pipeline,
+        classes=class_names,
+        modality=input_modality,
+        test_mode=False,
+        box_type_3d='LiDAR')
+    run_multi_view_dataset(dataset)
+
+
+test_nuscenes_multi_view_dataset()

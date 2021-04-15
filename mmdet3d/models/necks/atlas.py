@@ -59,6 +59,55 @@ class KittiAtlasNeck(nn.Module):
         pass
 
 
+@NECKS.register_module()
+class NuScenesAtlasNeck(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.block_0 = BasicBlock3d(in_channels, in_channels)
+        self.model_0 = nn.Sequential(
+            self._get_conv(in_channels, in_channels * 2, (1, 1, 2)),
+            BasicBlock3d(in_channels * 2, in_channels * 2),
+            self._get_conv(in_channels * 2, in_channels * 4, (1, 1, 2)),
+            BasicBlock3d(in_channels * 4, in_channels * 4),
+            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
+        )
+        self.block_1 = nn.Sequential(
+            self._get_conv(in_channels, in_channels * 2, (2, 2, 2)),
+            BasicBlock3d(in_channels * 2, in_channels * 2),
+        )
+        self.model_1 = nn.Sequential(
+            self._get_conv(in_channels * 2, in_channels * 4, (1, 1, 2)),
+            BasicBlock3d(in_channels * 4, in_channels * 4),
+            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
+        )
+        self.model_2 = nn.Sequential(
+            self._get_conv(in_channels * 2, in_channels * 4, (2, 2, 2)),
+            BasicBlock3d(in_channels * 4, in_channels * 4),
+            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
+        )
+
+    @staticmethod
+    def _get_conv(in_channels, out_channels, stride):
+        return nn.Sequential(
+            nn.Conv3d(in_channels, out_channels, 3, stride=stride, padding=1),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    @auto_fp16()
+    def forward(self, x):
+        outs = []
+        x = self.block_0(x)
+        outs.append(self.model_0(x)[..., 0].transpose(-1, -2))
+        x = self.block_1(x)
+        outs.append(self.model_1(x)[..., 0].transpose(-1, -2))
+        outs.append(self.model_2(x)[..., 0].transpose(-1, -2))
+        return outs
+
+    def init_weights(self):
+        pass
+
+
 # Everything below is copied from https://github.com/magicleap/Atlas/blob/master/atlas/backbone3d.py
 def get_norm_3d(norm, out_channels):
     """ Get a normalization module for 3D tensors
