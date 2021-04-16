@@ -168,9 +168,10 @@ log_config = dict(
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
     ])
+evaluation = dict(interval=100)
 dist_params = dict(backend='nccl')
 find_unused_parameters = True  # todo: fix number of FPN outputs
 log_level = 'INFO'
 load_from = None
-resume_from = None
+resume_from = './work_dirs/atlas_nuscenes/epoch_1.pth'  # todo: remove it !
 workflow = [('train', 1)]
