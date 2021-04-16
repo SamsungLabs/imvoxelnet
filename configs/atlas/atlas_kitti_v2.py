@@ -85,8 +85,8 @@ train_pipeline = [
                 keep_ratio=True,
                 multiscale_mode='range'),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32)],
-        post_transforms=[dict(type='KittiRandomFlip')]),
+            dict(type='Pad', size_divisor=32)]),
+    dict(type='KittiRandomFlip'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
@@ -99,8 +99,7 @@ test_pipeline = [
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(1280, 384), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32)],
-        post_transforms=[]),
+            dict(type='Pad', size_divisor=32)]),
     dict(type='KittiSetOrigin', point_cloud_range=point_cloud_range),
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
@@ -114,7 +113,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'kitti_infos_trainval.pkl',
+            ann_file=data_root + 'kitti_infos_train.pkl',
             split='training',
             pts_prefix='velodyne_reduced',
             pipeline=train_pipeline,
@@ -144,7 +143,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW',
-    lr=0.0001,
+    lr=0.0001 * 4,
     weight_decay=0.0001,
     paramwise_cfg=dict(
         custom_keys={'backbone': dict(lr_mult=0.1, decay_mult=1.0)}))

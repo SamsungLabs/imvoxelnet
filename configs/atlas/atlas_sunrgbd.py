@@ -13,8 +13,10 @@ model = dict(
     head_2d=dict(
         type='LayoutHead',
         n_channels=2048,
-        linear_size=128,
-        dropout=.0),
+        linear_size=256,
+        dropout=.0,
+        loss_angle=dict(type='SmoothL1Loss', loss_weight=100.),
+        loss_layout=dict(type='IoU3DLoss', loss_weight=1.)),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
