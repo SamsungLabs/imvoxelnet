@@ -27,7 +27,7 @@ model = dict(
         use_direction_classifier=True,
         anchor_generator=dict(
             type='Anchor3DRangeGenerator',
-            ranges=[[0, -39.68, -1.78, 69.12 - .256, 39.68 - .256, -1.78]],
+            ranges=[[0, -39.68, -1.78, 69.12 - .4018604, 39.68 - .3968, -1.78]],
             sizes=[[1.6, 3.9, 1.56]],
             rotations=[0, 1.57],
             reshape_out=True),
@@ -42,8 +42,8 @@ model = dict(
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=2.0),
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
-    n_voxels=(270, 310, 8),
-    voxel_size=(.256, .256, .5))
+    n_voxels=(172, 200, 8),
+    voxel_size=(.4018604, .3968, .5))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
