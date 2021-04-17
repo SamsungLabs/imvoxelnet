@@ -173,5 +173,5 @@ dist_params = dict(backend='nccl')
 find_unused_parameters = True  # todo: fix number of FPN outputs
 log_level = 'INFO'
 load_from = None
-resume_from = './work_dirs/atlas_nuscenes/epoch_1.pth'  # todo: remove it !
+resume_from = None
 workflow = [('train', 1)]
