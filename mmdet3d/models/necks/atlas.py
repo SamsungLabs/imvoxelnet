@@ -108,6 +108,65 @@ class NuScenesAtlasNeck(nn.Module):
         pass
 
 
+@NECKS.register_module()
+class NuScenesAtlasNeckV2(nn.Module):
+    def __init__(self, channels, out_channels, down_layers, up_layers):
+        super().__init__()
+        self.down_layers = nn.ModuleList()
+        for i in range(len(channels)):
+            layer = []
+            if i != 0:
+                layer.append(self._get_conv_3d(channels[i - 1], channels[i]))
+            layer.extend(
+                BasicBlock3d(channels[i], channels[i])
+                for _ in range(down_layers[i])
+            )
+            self.down_layers.append(nn.Sequential(*layer))
+        self.proj_layers = nn.ModuleList()
+        for i in range(len(channels)):
+            self.proj_layers.append(nn.Conv2d(channels[i], out_channels, 1))
+        self.up_layers = nn.ModuleList()
+        for i in range(len(up_layers)):
+            layer = [
+                self._get_conv_2d(out_channels, out_channels)
+                for _ in range(up_layers[i])
+            ]
+            self.up_layers.append(nn.Sequential(*layer))
+
+    @staticmethod
+    def _get_conv_3d(in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv3d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    @staticmethod
+    def _get_conv_2d(in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        xs = []
+        for down_layer, proj_layer in zip(self.down_layers, self.proj_layers):
+            x = down_layer(x)
+            xs.append(proj_layer(x.max(dim=-1).values))
+        out = []
+        x = xs[-1]
+        for i in range(len(self.up_layers))[::-1]:
+            x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+            x = (x + xs[i]) / 2
+            x = self.up_layers[i](x)
+            out.append(x)
+        return out
+
+    def init_weights(self):
+        pass
+
+
 # Everything below is copied from https://github.com/magicleap/Atlas/blob/master/atlas/backbone3d.py
 def get_norm_3d(norm, out_channels):
     """ Get a normalization module for 3D tensors
@@ -128,11 +187,13 @@ def get_norm_3d(norm, out_channels):
         }[norm]
     return norm(out_channels)
 
+
 def conv3x3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3x3 convolution with padding"""
     return nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=dilation, groups=groups, bias=False,
                      dilation=dilation)
+
 
 def conv1x1x1(in_planes, out_planes, stride=1):
     """1x1x1 convolution"""
