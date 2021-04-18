@@ -160,8 +160,8 @@ class NuScenesAtlasNeckV2(nn.Module):
             x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
             x = (x + xs[i]) / 2
             x = self.up_layers[i](x)
-            out.append(x)
-        return out
+            out.append(x.transpose(-1, -2))
+        return out[::-1]
 
     def init_weights(self):
         pass
