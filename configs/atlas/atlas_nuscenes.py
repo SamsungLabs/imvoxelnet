@@ -16,28 +16,19 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='NuScenesAtlasNeck',
+        type='KittiAtlasNeck',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
         type='Anchor3DHead',
-        num_classes=10,
+        num_classes=1,
         in_channels=256,
         feat_channels=256,
         use_direction_classifier=True,
         anchor_generator=dict(
             type='AlignedAnchor3DRangeGenerator',
             ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]],
-            scales=[1, 2, 4],
-            sizes=[
-                [0.8660, 2.5981, 1.],
-                [0.5774, 1.7321, 1.],
-                [1., 1., 1.],
-                [0.4, 0.4, 1],
-            ],
-            custom_values=[0, 0],
-            rotations=[0, 1.57],
-            reshape_out=True),
+            custom_values=[0, 0]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
