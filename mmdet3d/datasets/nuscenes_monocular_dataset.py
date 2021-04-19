@@ -19,5 +19,12 @@ class NuScenesMultiViewDataset(NuScenesDataset):
             )
         )
         if 'ann_info' in data_info:
-            new_info['ann_info'] = data_info['ann_info']
+            gt_labels_3d = data_info['ann_info']['gt_labels_3d'].copy()
+            # keep only car class
+            gt_labels_3d[gt_labels_3d > 0] = -1
+            new_info['ann_info'] = dict(
+                gt_bboxes_3d=data_info['ann_info']['gt_bboxes_3d'],
+                gt_names=data_info['ann_info']['gt_names'],
+                gt_labels_3d=gt_labels_3d
+            )
         return new_info
