@@ -16,42 +16,34 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='NuScenesAtlasNeckV2',
-        channels=[64, 128, 256, 512],
-        out_channels=256,
-        down_layers=[1, 2, 3, 4],
-        up_layers=[1, 1, 1]),
+        type='KittiAtlasNeck',
+        in_channels=64,
+        out_channels=256),
     bbox_head=dict(
-        type='Anchor3DHead',
-        num_classes=10,
+        type='FreeAnchor3DHead',
+        num_classes=1,
         in_channels=256,
         feat_channels=256,
         use_direction_classifier=True,
+        pre_anchor_topk=25,
+        bbox_thr=0.5,
+        gamma=2.0,
+        alpha=0.5,
         anchor_generator=dict(
-            type='AlignedAnchor3DRangeGenerator',
-            ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]],
-            scales=[1, 2, 4],
-            sizes=[
-                [0.8660, 2.5981, 1.],
-                [0.5774, 1.7321, 1.],
-                [1., 1., 1.],
-                [0.4, 0.4, 1],
-            ],
-            custom_values=[0, 0],
-            rotations=[0, 1.57],
-            reshape_out=True),
+            type='Anchor3DRangeGenerator',
+            ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
         dir_limit_offset=0,
-        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder', code_size=9),
+        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder'),
         loss_cls=dict(
             type='FocalLoss',
             use_sigmoid=True,
             gamma=2.0,
             alpha=0.25,
             loss_weight=1.0),
-        loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
+        loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=0.8),  # todo: 0.8 ?
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
     n_voxels=(200, 200, 8),
@@ -65,7 +57,6 @@ train_cfg = dict(
         min_pos_iou=0.3,
         ignore_iof_thr=-1),
     allowed_border=0,
-    code_weight=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
     pos_weight=-1,
     debug=False)
 test_cfg = dict(

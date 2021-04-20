@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from mmdet.datasets import DATASETS
 from .nuscenes_dataset import NuScenesDataset
@@ -19,12 +20,51 @@ class NuScenesMultiViewDataset(NuScenesDataset):
             )
         )
         if 'ann_info' in data_info:
-            gt_labels_3d = data_info['ann_info']['gt_labels_3d'].copy()
+            # remove gt velocity
+            gt_bboxes_3d = data_info['ann_info']['gt_bboxes_3d'].tensor
+            gt_bboxes_3d = gt_bboxes_3d[:, :-2]
+            gt_bboxes_3d = self.box_type_3d(gt_bboxes_3d)
             # keep only car class
+            gt_labels_3d = data_info['ann_info']['gt_labels_3d'].copy()
             gt_labels_3d[gt_labels_3d > 0] = -1
+            mask = gt_labels_3d >= 0
+            gt_bboxes_3d = gt_bboxes_3d[mask]
+            gt_names = data_info['ann_info']['gt_names'][mask]
+            gt_labels_3d = gt_labels_3d[mask]
             new_info['ann_info'] = dict(
-                gt_bboxes_3d=data_info['ann_info']['gt_bboxes_3d'],
+                gt_bboxes_3d=gt_bboxes_3d,
                 gt_names=data_info['ann_info']['gt_names'],
                 gt_labels_3d=gt_labels_3d
             )
         return new_info
+
+    def evaluate(self,
+                 results,
+                 metric='bbox',
+                 logger=None,
+                 jsonfile_prefix=None,
+                 result_names=['pts_bbox'],
+                 show=False,
+                 out_dir=None):
+        # update boxes with zero velocity
+        new_results = []
+        for i in range(len(results)):
+            box_type = type(results[i]['boxes_3d'])
+            boxes_3d = results[i]['boxes_3d'].tensor
+            boxes_3d = box_type(torch.cat((
+                boxes_3d, boxes_3d.new_zeros((boxes_3d.shape[0], 2))
+            ), dim=-1), box_dim=9)
+            new_results.append(dict(
+                boxes_3d=boxes_3d,
+                scores_3d=results[i]['scores_3d'],
+                labels_3d=results[i]['labels_3d']
+            ))
+        super().evaluate(
+            results=new_results,
+            metric=metric,
+            logger=logger,
+            jsonfile_prefix=jsonfile_prefix,
+            result_names=result_names,
+            show=show,
+            out_dir=out_dir
+        )

@@ -26,14 +26,13 @@ model = dict(
         feat_channels=256,
         use_direction_classifier=True,
         anchor_generator=dict(
-            type='AlignedAnchor3DRangeGenerator',
-            ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]],
-            custom_values=[0, 0]),
+            type='Anchor3DRangeGenerator',
+            ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
         dir_limit_offset=0,
-        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder', code_size=9),
+        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder'),
         loss_cls=dict(
             type='FocalLoss',
             use_sigmoid=True,
@@ -54,7 +53,6 @@ train_cfg = dict(
         min_pos_iou=0.3,
         ignore_iof_thr=-1),
     allowed_border=0,
-    code_weight=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
     pos_weight=-1,
     debug=False)
 test_cfg = dict(
