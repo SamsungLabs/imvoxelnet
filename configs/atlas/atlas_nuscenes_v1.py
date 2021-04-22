@@ -20,18 +20,15 @@ model = dict(
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
-        type='FreeAnchor3DHead',
+        type='Anchor3DHead',
         num_classes=1,
         in_channels=256,
         feat_channels=256,
         use_direction_classifier=True,
-        pre_anchor_topk=25,
-        bbox_thr=0.5,
-        gamma=2.0,
-        alpha=0.5,
         anchor_generator=dict(
             type='Anchor3DRangeGenerator',
-            ranges=[[-50, -50, -1.8, 50 - .5, 50 - .5, -1.8]]),
+            sizes=[[1.98, 4.67, 1.74]],
+            ranges=[[-50, -50, -1.0, 50 - .5, 50 - .5, -1.0]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
@@ -43,18 +40,18 @@ model = dict(
             gamma=2.0,
             alpha=0.25,
             loss_weight=1.0),
-        loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=0.8),  # todo: 0.8 ?
+        loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
     n_voxels=(200, 200, 8),
-    voxel_size=(.5, .5, 1.))
+    voxel_size=(.5, .5, .5))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
         iou_calculator=dict(type='BboxOverlapsNearest3D'),
         pos_iou_thr=0.6,
-        neg_iou_thr=0.3,
-        min_pos_iou=0.3,
+        neg_iou_thr=0.45,
+        min_pos_iou=0.45,
         ignore_iof_thr=-1),
     allowed_border=0,
     pos_weight=-1,
@@ -62,16 +59,16 @@ train_cfg = dict(
 test_cfg = dict(
     use_rotate_nms=True,
     nms_across_levels=False,
-    nms_pre=1000,
-    nms_thr=0.2,
+    nms_pre=100,
+    nms_thr=0.01,
     score_thr=0.05,
     min_bbox_size=0,
-    max_num=500)
+    max_num=50)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'NuScenesMultiViewDataset'
 data_root = 'data/nuscenes/'
-point_cloud_range = [-50, -50, -5, 50, 50, 3]
+point_cloud_range = [-50, -50, -3, 50, 50, 1]
 class_names = [
     'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
     'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
