@@ -68,7 +68,7 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375],
 
 dataset_type = 'NuScenesMultiViewDataset'
 data_root = 'data/nuscenes/'
-point_cloud_range = [-50, -50, -5, 50, 50, 3]
+point_cloud_range = [-50, -50, -3, 50, 50, 1]
 class_names = [
     'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
     'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
