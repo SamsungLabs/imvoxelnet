@@ -26,7 +26,7 @@ model = dict(
             dict(num_class=1, class_names=['car'])
         ],
         common_heads=dict(
-            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2)),
+            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2), vel=(2, 2)),
         share_conv_channel=64,
         bbox_coder=dict(
             type='CenterPointBBoxCoder',
