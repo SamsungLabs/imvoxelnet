@@ -108,6 +108,9 @@ class AtlasDetector(BaseDetector):
     def aug_test(self, imgs, img_metas):
         pass
 
+    def show_results(self, *args, **kwargs):
+        pass
+
     @staticmethod
     def _compute_projection(img_meta, stride, angles):
         projection = []

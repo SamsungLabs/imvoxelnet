@@ -352,6 +352,12 @@ class CenterHead(nn.Module):
         """
         return multi_apply(self.forward_single, feats)
 
+    def forward_train(self, x, valid, img_metas, gt_bboxes_3d, gt_labels_3d):
+        # todo: support valid in separate class
+        x = self(x)
+        losses = self.loss(gt_bboxes_3d, gt_labels_3d, x)
+        return losses
+
     def _gather_feat(self, feat, ind, mask=None):
         """Gather feature map.
 
@@ -602,7 +608,7 @@ class CenterHead(nn.Module):
             loss_dict[f'task{task_id}.loss_bbox'] = loss_bbox
         return loss_dict
 
-    def get_bboxes(self, preds_dicts, img_metas, img=None, rescale=False):
+    def get_bboxes(self, preds_dicts, valid, img_metas, img=None, rescale=False):
         """Generate bboxes from bbox head predictions.
 
         Args:
@@ -612,6 +618,8 @@ class CenterHead(nn.Module):
         Returns:
             list[dict]: Decoded bbox, scores and labels after nms.
         """
+        preds_dicts = [preds_dicts]  # todo: support valid in separate class
+
         rets = []
         for task_id, preds_dict in enumerate(preds_dicts):
             num_class_with_bg = self.num_classes[task_id]
