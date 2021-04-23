@@ -36,7 +36,7 @@ model = dict(
             score_threshold=0.1,
             out_size_factor=8,
             voxel_size=[.1, .1],
-            code_size=7),
+            code_size=9),
         seperate_head=dict(
             type='SeparateHead', init_bias=-2.19, final_kernel=3),
         loss_cls=dict(type='GaussianFocalLoss', reduction='mean'),
@@ -53,7 +53,7 @@ train_cfg = dict(
     gaussian_overlap=0.1,
     max_objs=500,
     min_radius=2,
-    code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
     point_cloud_range=[-51.2, -51.2, -3.0, 51.2, 51.2, 1.0])
 test_cfg = dict(
     post_center_limit_range=[-51.2, -51.2, -3.0, 51.2, 51.2, 1.0],
