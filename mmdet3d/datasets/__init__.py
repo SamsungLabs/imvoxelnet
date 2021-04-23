@@ -1,11 +1,12 @@
 from mmdet.datasets.builder import build_dataloader
 from .builder import DATASETS, build_dataset
 from .custom_3d import Custom3DDataset
+from .dataset_wrappers import MultiViewMixin
 from .kitti_dataset import KittiDataset
 from .kitti_monocular_dataset import KittiMultiViewDataset, KittiStereoDataset
 from .lyft_dataset import LyftDataset
 from .nuscenes_dataset import NuScenesDataset
-from .nuscenes_monocular_dataset import NuScenesMultiViewDataset
+from .nuscenes_monocular_dataset import NuScenesMultiViewDataset, NuScenesMultiViewDatasetV2
 from .pipelines import (BackgroundPointsFilter, GlobalRotScaleTrans,
                         IndoorPointSample, LoadAnnotations3D,
                         LoadPointsFromFile, LoadPointsFromMultiSweeps,
