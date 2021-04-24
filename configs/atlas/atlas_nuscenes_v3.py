@@ -20,59 +20,55 @@ model = dict(
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
-        type='CenterHead',
-        in_channels=256,  # todo: 512 ?
-        tasks=[
-            dict(num_class=1, class_names=['car'])
-        ],
-        common_heads=dict(
-            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2), vel=(2, 2)),
-        share_conv_channel=64,
-        bbox_coder=dict(
-            type='CenterPointBBoxCoder',
-            pc_range=[-51.2, -51.2],
-            post_center_range=[-51.2, -51.2, -3.0, 51.2, 51.2, 1.0],
-            max_num=500,
-            score_threshold=0.1,
-            out_size_factor=8,
-            voxel_size=[.1, .1],
-            code_size=9),
-        seperate_head=dict(
-            type='SeparateHead', init_bias=-2.19, final_kernel=3),
-        loss_cls=dict(type='GaussianFocalLoss', reduction='mean'),
-        loss_bbox=dict(type='L1Loss', reduction='mean', loss_weight=0.25),
-        norm_bbox=True),
-    n_voxels=(128, 128, 8),
-    voxel_size=(.8, .8, .5))
-# model training and testing settings
+        type='Anchor3DHead',
+        num_classes=1,
+        in_channels=256,
+        feat_channels=256,
+        use_direction_classifier=True,
+        anchor_generator=dict(
+            type='Anchor3DRangeGenerator',
+            sizes=[[1.98, 4.67, 1.74]],
+            ranges=[[-50, -50, -1.0, 50 - .5, 50 - .5, -1.0]]),
+        assigner_per_size=False,
+        diff_rad_by_sin=True,
+        dir_offset=0.7854,  # pi/4
+        dir_limit_offset=0,
+        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder'),
+        loss_cls=dict(
+            type='FocalLoss',
+            use_sigmoid=True,
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=1.0),
+        loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
+        loss_dir=dict(
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
+    n_voxels=(200, 200, 8),
+    voxel_size=(.5, .5, .5))
 train_cfg = dict(
-    grid_size=[1024, 1024, 40],
-    voxel_size=[.1, .1, .2],  # todo: Why .2 ? Unused?
-    out_size_factor=8,
-    dense_reg=1,
-    gaussian_overlap=0.1,
-    max_objs=500,
-    min_radius=2,
-    code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
-    point_cloud_range=[-51.2, -51.2, -3.0, 51.2, 51.2, 1.0])
+    assigner=dict(
+        type='MaxIoUAssigner',
+        iou_calculator=dict(type='BboxOverlapsNearest3D'),
+        pos_iou_thr=0.6,
+        neg_iou_thr=0.3,
+        min_pos_iou=0.3,
+        ignore_iof_thr=-1),
+    allowed_border=0,
+    pos_weight=-1,
+    debug=False)
 test_cfg = dict(
-    post_center_limit_range=[-51.2, -51.2, -3.0, 51.2, 51.2, 1.0],
-    max_per_img=500,
-    max_pool_nms=False,
-    min_radius=[4, 12, 10, 1, 0.85, 0.175],
-    score_threshold=0.1,
-    out_size_factor=8,
-    voxel_size=[.1, .1],
-    nms_type='rotate',
-    pre_max_size=1000,
-    post_max_size=83,
+    use_rotate_nms=True,
+    nms_across_levels=False,
+    nms_pre=1000,
     nms_thr=0.2,
-    pc_range=[-51.2, -51.2])
+    score_thr=0.05,
+    min_bbox_size=0,
+    max_num=500)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'NuScenesMultiViewDatasetV2'
+dataset_type = 'NuScenesMultiViewDataset'
 data_root = 'data/nuscenes/'
-point_cloud_range = [-51.2, -51.2, -3, 51.2, 51.2, 1]
+point_cloud_range = [-50, -50, -3, 50, 50, 1]
 class_names = [
     'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
     'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
