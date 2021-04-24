@@ -63,109 +63,33 @@ class KittiAtlasNeck(nn.Module):
 class NuScenesAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.block_0 = BasicBlock3d(in_channels, in_channels)
-        self.model_0 = nn.Sequential(
-            self._get_conv(in_channels, in_channels * 2, (1, 1, 2)),
+        self.model = nn.Sequential(
+            BasicBlock3d(in_channels, in_channels),
+            self._get_conv(in_channels, in_channels * 2),
             BasicBlock3d(in_channels * 2, in_channels * 2),
-            self._get_conv(in_channels * 2, in_channels * 4, (1, 1, 2)),
-            BasicBlock3d(in_channels * 4, in_channels * 4),
-            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
-        )
-        self.block_1 = nn.Sequential(
-            self._get_conv(in_channels, in_channels * 2, (2, 2, 2)),
             BasicBlock3d(in_channels * 2, in_channels * 2),
-        )
-        self.model_1 = nn.Sequential(
-            self._get_conv(in_channels * 2, in_channels * 4, (1, 1, 2)),
+            self._get_conv(in_channels * 2, in_channels * 4),
             BasicBlock3d(in_channels * 4, in_channels * 4),
-            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
-        )
-        self.model_2 = nn.Sequential(
-            self._get_conv(in_channels * 2, in_channels * 4, (2, 2, 2)),
             BasicBlock3d(in_channels * 4, in_channels * 4),
-            self._get_conv(in_channels * 4, out_channels, (1, 1, 2))
+            BasicBlock3d(in_channels * 4, in_channels * 4),
+            self._get_conv(in_channels * 4, out_channels)
         )
 
     @staticmethod
-    def _get_conv(in_channels, out_channels, stride):
+    def _get_conv(in_channels, out_channels):
         return nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, 3, stride=stride, padding=1),
+            nn.Conv3d(in_channels, out_channels, 3, stride=(1, 1, 2), padding=1),
             nn.BatchNorm3d(out_channels),
             nn.ReLU(inplace=True)
         )
 
     @auto_fp16()
     def forward(self, x):
-        outs = []
-        x = self.block_0(x)
-        outs.append(self.model_0(x)[..., 0].transpose(-1, -2))
-        x = self.block_1(x)
-        outs.append(self.model_1(x)[..., 0].transpose(-1, -2))
-        outs.append(self.model_2(x)[..., 0].transpose(-1, -2))
-        return outs
+        x = self.model.forward(x)
+        return [x[..., 0].transpose(-1, -2)]
 
     def init_weights(self):
         pass
-
-
-@NECKS.register_module()
-class NuScenesAtlasNeckV2(nn.Module):
-    def __init__(self, channels, out_channels, down_layers, up_layers):
-        super().__init__()
-        self.down_layers = nn.ModuleList()
-        for i in range(len(channels)):
-            layer = []
-            if i != 0:
-                layer.append(self._get_conv_3d(channels[i - 1], channels[i]))
-            layer.extend(
-                BasicBlock3d(channels[i], channels[i])
-                for _ in range(down_layers[i])
-            )
-            self.down_layers.append(nn.Sequential(*layer))
-        self.proj_layers = nn.ModuleList()
-        for i in range(len(channels)):
-            self.proj_layers.append(nn.Conv2d(channels[i], out_channels, 1))
-        self.up_layers = nn.ModuleList()
-        for i in range(len(up_layers)):
-            layer = [
-                self._get_conv_2d(out_channels, out_channels)
-                for _ in range(up_layers[i])
-            ]
-            self.up_layers.append(nn.Sequential(*layer))
-
-    @staticmethod
-    def _get_conv_3d(in_channels, out_channels):
-        return nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
-            nn.BatchNorm3d(out_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    @staticmethod
-    def _get_conv_2d(in_channels, out_channels):
-        return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        xs = []
-        for down_layer, proj_layer in zip(self.down_layers, self.proj_layers):
-            x = down_layer(x)
-            xs.append(proj_layer(x.max(dim=-1).values))
-        out = []
-        x = xs[-1]
-        for i in range(len(self.up_layers))[::-1]:
-            x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
-            x = (x + xs[i]) / 2
-            x = self.up_layers[i](x)
-            out.append(x.transpose(-1, -2))
-        return out[::-1]
-
-    def init_weights(self):
-        pass
-
 
 # Everything below is copied from https://github.com/magicleap/Atlas/blob/master/atlas/backbone3d.py
 def get_norm_3d(norm, out_channels):
