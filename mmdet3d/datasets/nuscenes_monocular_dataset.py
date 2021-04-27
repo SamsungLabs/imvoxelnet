@@ -1,5 +1,3 @@
-import os
-import mmcv
 import torch
 import numpy as np
 from mmdet.datasets import DATASETS
@@ -54,39 +52,6 @@ class NuScenesMultiViewDataset(NuScenesDataset):
                 scores_3d=results[i]['scores_3d'],
                 labels_3d=results[i]['labels_3d']
             ))
-        super().evaluate(new_results, *args, **kwargs)
-
-
-@DATASETS.register_module()
-class NuScenesMultiViewDatasetV2(NuScenesDataset):
-    def get_data_info(self, index):
-        data_info = super().get_data_info(index)
-        n_cameras = len(data_info['img_filename'])
-        assert n_cameras == 6
-        new_info = dict(
-            sample_idx=data_info['sample_idx'],
-            img_prefix=[None] * n_cameras,
-            img_info=[dict(filename=x) for x in data_info['img_filename']],
-            lidar2img=dict(
-                extrinsic=[x.astype(np.float32) for x in data_info['lidar2img']],
-                intrinsic=np.eye(4, dtype=np.float32)
-            )
-        )
-        if 'ann_info' in data_info:
-            # remove gt velocity
-            gt_bboxes_3d = data_info['ann_info']['gt_bboxes_3d'].tensor
-            gt_bboxes_3d = np.concatenate((gt_bboxes_3d[:, :-2], np.zeros_like(gt_bboxes_3d[:, -2:])), axis=1)
-            gt_bboxes_3d = self.box_type_3d(gt_bboxes_3d, box_dim=9)
-            # keep only car class
-            gt_labels_3d = data_info['ann_info']['gt_labels_3d'].copy()
-            gt_labels_3d[gt_labels_3d > 0] = -1
-            mask = gt_labels_3d >= 0
-            gt_bboxes_3d = gt_bboxes_3d[mask]
-            gt_names = data_info['ann_info']['gt_names'][mask]
-            gt_labels_3d = gt_labels_3d[mask]
-            new_info['ann_info'] = dict(
-                gt_bboxes_3d=gt_bboxes_3d,
-                gt_names=gt_names,
-                gt_labels_3d=gt_labels_3d
-            )
-        return new_info
+        result_dict = super().evaluate(new_results, *args, **kwargs)
+        print(result_dict)
+        return result_dict
