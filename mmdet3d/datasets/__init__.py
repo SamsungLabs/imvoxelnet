@@ -6,7 +6,7 @@ from .kitti_dataset import KittiDataset
 from .kitti_monocular_dataset import KittiMultiViewDataset, KittiStereoDataset
 from .lyft_dataset import LyftDataset
 from .nuscenes_dataset import NuScenesDataset
-from .nuscenes_monocular_dataset import NuScenesMultiViewDataset, NuScenesMultiViewDatasetV2
+from .nuscenes_monocular_dataset import NuScenesMultiViewDataset
 from .pipelines import (BackgroundPointsFilter, GlobalRotScaleTrans,
                         IndoorPointSample, LoadAnnotations3D,
                         LoadPointsFromFile, LoadPointsFromMultiSweeps,
