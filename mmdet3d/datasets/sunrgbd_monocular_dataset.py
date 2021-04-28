@@ -49,15 +49,6 @@ class SUNRGBDMonocularDataset(SUNRGBDDataset):
         else:
             return []
 
-    def evaluate(self,
-                 results,
-                 metric=None,
-                 iou_thr=(0.15,),
-                 logger=None,
-                 show=False,
-                 out_dir=None):
-        return super().evaluate(results, metric, iou_thr, logger, show, out_dir)
-
 
 @DATASETS.register_module()
 class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):

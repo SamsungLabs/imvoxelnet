@@ -10,6 +10,13 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch'),
+    head_2d=dict(
+        type='LayoutHead',
+        n_channels=2048,
+        linear_size=256,
+        dropout=.0,
+        loss_angle=dict(type='SmoothL1Loss', loss_weight=100.),
+        loss_layout=dict(type='IoU3DLoss', loss_weight=1.)),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -38,10 +45,10 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SUNRGBDMultiViewDataset'
+dataset_type = 'SUNRGBDTotalMultiViewDataset'
 data_root = 'data/sunrgbd/'
-class_names = ('bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-               'night_stand', 'bookshelf', 'bathtub')
+class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
+               'night_stand', 'sink', 'lamp')
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
@@ -49,12 +56,10 @@ train_pipeline = [
         type='ScanNetMultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='LoadImageFromFile'),
-            dict(type='RandomFlip'),
+            dict(type='SUNRGBDTotalLoadImageFromFile'),
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
-    dict(type='SUNRGBDRandomFlip'),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -73,11 +78,11 @@ data = dict(
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
-        times=2,
+        times=1,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'sunrgbd_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -85,7 +90,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -93,7 +98,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,

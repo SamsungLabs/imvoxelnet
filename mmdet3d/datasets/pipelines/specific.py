@@ -133,3 +133,22 @@ class SUNRGBDTotalLoadImageFromFile(LoadImageFromFile):
         if flip:
             results['img'] = results['img'][:, ::-1]
         return results
+
+
+@PIPELINES.register_module()
+class SUNRGBDRandomFlip:
+    def __call__(self, results):
+        if results['flip']:
+            flip_matrix = np.eye(3)
+            flip_matrix[0, 0] *= -1
+            extrinsic = results['lidar2img']['extrinsic'][0][:3, :3]
+            results['lidar2img']['extrinsic'][0][:3, :3] = flip_matrix @ extrinsic @ flip_matrix.T
+            boxes = results['gt_bboxes_3d'].tensor.numpy()
+            center = boxes[:, :3]
+            alpha = boxes[:, 6]
+            phi = np.arctan2(center[:, 1], center[:, 0]) - alpha
+            center_flip = center @ flip_matrix
+            alpha_flip = np.arctan2(center_flip[:, 1], center_flip[:, 0]) + phi
+            boxes_flip = np.concatenate([center_flip, boxes[:, 3:6], alpha_flip[:, None]], 1)
+            results['gt_bboxes_3d'] = results['box_type_3d'](boxes_flip)
+        return results
