@@ -31,9 +31,9 @@ def create_indoor_info_file(data_path,
     val_filename = os.path.join(save_path, f'{pkl_prefix}_infos_val.pkl')
     if pkl_prefix == 'sunrgbd':
         train_dataset = SUNRGBDData(
-            root_path=data_path, split='train', use_v1=use_v1, monocular=monocular)
+            root_path=data_path, split='train', use_v1=use_v1)
         val_dataset = SUNRGBDData(
-            root_path=data_path, split='val', use_v1=use_v1, monocular=monocular)
+            root_path=data_path, split='val', use_v1=use_v1)
     else:
         dataset = ScanNetMonocularData if monocular else ScanNetData
         train_dataset = dataset(root_path=data_path, split='train')

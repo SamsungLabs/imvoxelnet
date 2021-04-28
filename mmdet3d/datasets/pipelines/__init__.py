@@ -11,7 +11,8 @@ from .transforms_3d import (BackgroundPointsFilter, GlobalRotScaleTrans,
                             RandomFlip3D, VoxelBasedPointSampler)
 from .specific import (NuScenesMultiViewPipeline, ScanNetMultiViewPipeline,
                        RandomShiftOrigin, KittiSetOrigin, KittiRandomFlip,
-                       SUNRGBDSetOrigin, SUNRGBDTotalLoadImageFromFile)
+                       SUNRGBDSetOrigin, SUNRGBDTotalLoadImageFromFile,
+                       SUNRGBDRandomFlip)
 
 __all__ = [
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',

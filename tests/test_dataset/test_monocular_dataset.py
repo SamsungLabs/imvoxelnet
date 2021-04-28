@@ -85,7 +85,7 @@ def test_scannet_multi_view_dataset():
     run_multi_view_dataset(dataset)
 
 
-def test_sunrgbd_multi_view_dataset(dataset_type):
+def test_sunrgbd_total_multi_view_dataset():
     data_root = './data/sunrgbd/'
     class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
                    'night_stand', 'sink', 'lamp')
@@ -101,9 +101,38 @@ def test_sunrgbd_multi_view_dataset(dataset_type):
         dict(type='DefaultFormatBundle3D', class_names=class_names),
         dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
-    dataset = dataset_type(
+    dataset = SUNRGBDTotalMultiViewDataset(
         data_root=data_root,
         ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
+        pipeline=pipeline,
+        classes=class_names,
+        filter_empty_gt=True,
+        box_type_3d='Depth'
+    )
+    run_multi_view_dataset(dataset)
+
+
+def test_sunrgbd_multi_view_dataset():
+    data_root = './data/sunrgbd/'
+    class_names = ('bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
+                   'night_stand', 'bookshelf', 'bathtub')
+    pipeline = [
+        dict(type='LoadAnnotations3D'),
+        dict(
+            type='ScanNetMultiViewPipeline',
+            n_images=1,
+            transforms=[
+                dict(type='LoadImageFromFile'),
+                dict(type='RandomFlip'),
+                dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
+                dict(type='Pad', size=(480, 640))]),
+        dict(type='SUNRGBDRandomFlip'),
+        dict(type='DefaultFormatBundle3D', class_names=class_names),
+        dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    ]
+    dataset = SUNRGBDMultiViewDataset(
+        data_root=data_root,
+        ann_file=data_root + 'sunrgbd_infos_train.pkl',
         pipeline=pipeline,
         classes=class_names,
         filter_empty_gt=True,
@@ -179,6 +208,3 @@ def test_nuscenes_multi_view_dataset():
         test_mode=False,
         box_type_3d='LiDAR')
     run_multi_view_dataset(dataset)
-
-
-test_nuscenes_multi_view_dataset()

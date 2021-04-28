@@ -66,20 +66,14 @@ class SUNRGBDData(object):
         use_v1 (bool): Whether to use v1. Default: False.
     """
 
-    def __init__(self, root_path, split='train', use_v1=False, monocular=False):
+    def __init__(self, root_path, split='train', use_v1=False):
         self.root_dir = root_path
         self.split = split
         self.split_dir = osp.join(root_path, 'sunrgbd_trainval')
-        if monocular:
-            self.classes = [
-                'cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
-                'night_stand', 'sink', 'lamp'
-            ]
-        else:
-            self.classes = [
-                'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-                'night_stand', 'bookshelf', 'bathtub'
-            ]
+        self.classes = [
+            'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
+            'night_stand', 'bookshelf', 'bathtub'
+        ]
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {
             label: self.classes[label]
