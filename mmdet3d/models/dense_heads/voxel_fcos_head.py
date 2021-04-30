@@ -512,6 +512,10 @@ class ScanNetVoxelFCOSHead(VoxelFCOSHead):
 
     def _nms(self, bboxes, scores, img_meta):
         scores, labels = scores.max(dim=1)
+        ids = scores > self.test_cfg.score_thr
+        bboxes = bboxes[ids]
+        scores = scores[ids]
+        labels = labels[ids]
         ids = aligned_3d_nms(bboxes, scores, labels, self.test_cfg.iou_thr)
         bboxes = bboxes[ids]
         bboxes = torch.stack((

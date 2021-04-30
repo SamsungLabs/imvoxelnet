@@ -6,10 +6,11 @@ from mmdet.datasets import DATASETS
 from .custom_3d import Custom3DDataset
 from .scannet_dataset import ScanNetDataset
 from mmdet3d.core.bbox import DepthInstance3DBoxes
+from .dataset_wrappers import MultiViewMixin
 
 
 @DATASETS.register_module()
-class ScanNetMultiViewDataset(Custom3DDataset):
+class ScanNetMultiViewDataset(MultiViewMixin, Custom3DDataset):
     CLASSES = ScanNetDataset.CLASSES
 
     def get_data_info(self, index):
