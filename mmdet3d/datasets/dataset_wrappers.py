@@ -1,6 +1,6 @@
 import os
+import cv2
 import skimage.io
-import skimage.draw
 import numpy as np
 
 from .builder import DATASETS
@@ -116,29 +116,30 @@ class MultiViewMixin:
             [0, 4], [1, 5], [2, 6], [3, 7]
         ]:
             if z_mask[i] and z_mask[j]:
-                ci = corners_2d[i]
-                cj = corners_2d[j]
-                rr, cc, val = skimage.draw.line_aa(ci[1], ci[0], cj[1], cj[0])
-                mask = np.logical_and.reduce((
-                    rr >= 0,
-                    rr < img.shape[0],
-                    cc >= 0,
-                    cc < img.shape[1]
-                ))
-                val = np.broadcast_to(val[mask][:, np.newaxis], (len(val[mask]), 3))
-                img[rr[mask], cc[mask], :] = val * color
+                img = cv2.line(
+                    img=img,
+                    pt1=tuple(corners_2d[i]),
+                    pt2=tuple(corners_2d[j]),
+                    color=color,
+                    thickness=2,
+                    lineType=cv2.LINE_AA
+                )
 
     def show(self, results, out_dir):
         assert out_dir is not None, 'Expect out_dir, got none.'
         for i, result in enumerate(results):
             info = self.get_data_info(i)
-            img = skimage.io.imread(info['img_info'][0]['filename'])
-            extrinsic = info['lidar2img']['extrinsic'][0]
-            intrinsic = info['lidar2img']['intrinsic'][:3, :3]
-            projection = intrinsic @ extrinsic[:3]
-            corners = result['boxes_3d'].corners.numpy()
-            scores = result['scores_3d'].numpy()
-            labels = result['labels_3d'].numpy()
-            for corner, score, label in zip(corners, scores, labels):
-                self.draw_corners(img, corner, self.COLORS[label], projection)
-        skimage.io.imsave(os.path.join(out_dir, 'tmp.png'), img)
+            for j in range(len(info['img_info'])):
+                img = skimage.io.imread(info['img_info'][j]['filename'])
+                extrinsic = info['lidar2img']['extrinsic'][j]
+                intrinsic = info['lidar2img']['intrinsic'][:3, :3]
+                projection = intrinsic @ extrinsic[:3]
+                if not len(result['scores_3d']):
+                    continue
+                corners = result['boxes_3d'].corners.numpy()
+                scores = result['scores_3d'].numpy()
+                labels = result['labels_3d'].numpy()
+                for corner, score, label in zip(corners, scores, labels):
+                    self.draw_corners(img, corner, self.COLORS[label], projection)
+                out_file_name = os.path.split(info['img_info'][j]['filename'])[-1][:-4]
+                skimage.io.imsave(os.path.join(out_dir, f'{out_file_name}.png'), img)

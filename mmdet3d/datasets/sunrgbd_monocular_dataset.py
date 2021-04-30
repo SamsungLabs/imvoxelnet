@@ -5,10 +5,11 @@ from mmcv.utils import print_log
 from mmdet.datasets import DATASETS
 from .sunrgbd_dataset import SUNRGBDDataset
 from mmdet3d.core.bbox import DepthInstance3DBoxes
+from .dataset_wrappers import MultiViewMixin
 
 
 @DATASETS.register_module()
-class SUNRGBDMonocularDataset(SUNRGBDDataset):
+class SUNRGBDMonocularDataset(MultiViewMixin, SUNRGBDDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
         img_filename = osp.join(self.data_root, info['image']['image_path'])

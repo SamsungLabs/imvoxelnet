@@ -35,7 +35,7 @@ train_cfg = dict()
 test_cfg = dict(
     nms_pre=1000,
     iou_thr=.15,
-    score_thr=.05)
+    score_thr=.0)  # todo: ?
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 dataset_type = 'ScanNetMultiViewDataset'
@@ -52,7 +52,6 @@ train_pipeline = [
         n_images=45,
         transforms=[
             dict(type='LoadImageFromFile'),
-            dict(type='RandomFlip'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size=(480, 640))

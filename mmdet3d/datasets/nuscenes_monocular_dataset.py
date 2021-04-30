@@ -1,11 +1,13 @@
 import torch
 import numpy as np
+
 from mmdet.datasets import DATASETS
 from .nuscenes_dataset import NuScenesDataset
+from .dataset_wrappers import MultiViewMixin
 
 
 @DATASETS.register_module()
-class NuScenesMultiViewDataset(NuScenesDataset):
+class NuScenesMultiViewDataset(MultiViewMixin, NuScenesDataset):
     def get_data_info(self, index):
         data_info = super().get_data_info(index)
         n_cameras = len(data_info['img_filename'])
