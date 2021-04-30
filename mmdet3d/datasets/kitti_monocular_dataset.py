@@ -3,10 +3,11 @@ import numpy as np
 
 from mmdet.datasets import DATASETS
 from .kitti_dataset import KittiDataset
+from .dataset_wrappers import MultiViewMixin
 
 
 @DATASETS.register_module()
-class KittiMultiViewDataset(KittiDataset):
+class KittiMultiViewDataset(MultiViewMixin, KittiDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
         sample_idx = info['image']['image_idx']
