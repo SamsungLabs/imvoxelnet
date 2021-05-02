@@ -26,7 +26,7 @@ model = dict(
             in_channels=64,
             norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
             layer_nums=[1, 1, 1],
-            layer_strides=[1, 1, 1],
+            layer_strides=[1, 2, 2],
             out_channels=[64, 128, 256]),
         neck=dict(
             type='FPN',
