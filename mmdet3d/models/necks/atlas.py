@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from mmcv.runner import auto_fp16
-from mmdet.models import NECKS
+from mmdet.models import NECKS, build_backbone, build_neck
 
 
 @NECKS.register_module()
@@ -84,6 +84,41 @@ class KittiSyncAtlasNeck(nn.Module):
     def forward(self, x):
         x = self.model.forward(x)
         return [x[..., 0].transpose(-1, -2)]
+
+    def init_weights(self):
+        pass
+
+
+@NECKS.register_module()
+class NuScenesAtlasNeck(nn.Module):
+    def __init__(self, in_channels, out_channels, backbone, neck):
+        super().__init__()
+        self.backbone = build_backbone(backbone)
+        self.neck = build_neck(neck)
+        self.model = nn.Sequential(
+            BasicBlock3d(in_channels, in_channels),
+            self._get_conv(in_channels, in_channels),
+            BasicBlock3d(in_channels, in_channels),
+            self._get_conv(in_channels, in_channels),
+            BasicBlock3d(in_channels, in_channels),
+            self._get_conv(in_channels, out_channels)
+        )
+
+    @staticmethod
+    def _get_conv(in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv3d(in_channels, out_channels, 3, stride=(1, 1, 2), padding=1),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    @auto_fp16()
+    def forward(self, x):
+        x = self.model.forward(x)
+        x = x[..., 0].transpose(-1, -2)
+        x = self.backbone(x)
+        x = self.neck(x)
+        return x
 
     def init_weights(self):
         pass
