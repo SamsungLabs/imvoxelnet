@@ -34,11 +34,11 @@ class KittiAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
-            BasicBlock3d(in_channels, in_channels, norm='nnSyncBN'),
+            BasicBlock3d(in_channels, in_channels),
             self._get_conv(in_channels, in_channels * 2),
-            BasicBlock3d(in_channels * 2, in_channels * 2, norm='nnSyncBN'),
+            BasicBlock3d(in_channels * 2, in_channels * 2),
             self._get_conv(in_channels * 2, in_channels * 4),
-            BasicBlock3d(in_channels * 4, in_channels * 4, norm='nnSyncBN'),
+            BasicBlock3d(in_channels * 4, in_channels * 4),
             self._get_conv(in_channels * 4, out_channels)
         )
 
@@ -64,11 +64,11 @@ class KittiSyncAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
-            BasicBlock3d(in_channels, in_channels),
+            BasicBlock3d(in_channels, in_channels, norm='nnSyncBN'),
             self._get_conv(in_channels, in_channels * 2),
-            BasicBlock3d(in_channels * 2, in_channels * 2),
+            BasicBlock3d(in_channels * 2, in_channels * 2, norm='nnSyncBN'),
             self._get_conv(in_channels * 2, in_channels * 4),
-            BasicBlock3d(in_channels * 4, in_channels * 4),
+            BasicBlock3d(in_channels * 4, in_channels * 4, norm='nnSyncBN'),
             self._get_conv(in_channels * 4, out_channels)
         )
 
