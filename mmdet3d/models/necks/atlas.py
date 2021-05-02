@@ -34,11 +34,11 @@ class KittiAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
-            BasicBlock3d(in_channels, in_channels),
+            BasicBlock3d(in_channels, in_channels, norm='nnSyncBN'),
             self._get_conv(in_channels, in_channels * 2),
-            BasicBlock3d(in_channels * 2, in_channels * 2),
+            BasicBlock3d(in_channels * 2, in_channels * 2, norm='nnSyncBN'),
             self._get_conv(in_channels * 2, in_channels * 4),
-            BasicBlock3d(in_channels * 4, in_channels * 4),
+            BasicBlock3d(in_channels * 4, in_channels * 4, norm='nnSyncBN'),
             self._get_conv(in_channels * 4, out_channels)
         )
 
@@ -60,17 +60,14 @@ class KittiAtlasNeck(nn.Module):
 
 
 @NECKS.register_module()
-class NuScenesAtlasNeck(nn.Module):
+class KittiSyncAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
             BasicBlock3d(in_channels, in_channels),
             self._get_conv(in_channels, in_channels * 2),
             BasicBlock3d(in_channels * 2, in_channels * 2),
-            BasicBlock3d(in_channels * 2, in_channels * 2),
             self._get_conv(in_channels * 2, in_channels * 4),
-            BasicBlock3d(in_channels * 4, in_channels * 4),
-            BasicBlock3d(in_channels * 4, in_channels * 4),
             BasicBlock3d(in_channels * 4, in_channels * 4),
             self._get_conv(in_channels * 4, out_channels)
         )
@@ -79,7 +76,7 @@ class NuScenesAtlasNeck(nn.Module):
     def _get_conv(in_channels, out_channels):
         return nn.Sequential(
             nn.Conv3d(in_channels, out_channels, 3, stride=(1, 1, 2), padding=1),
-            nn.BatchNorm3d(out_channels),
+            nn.SyncBatchNorm(out_channels),
             nn.ReLU(inplace=True)
         )
 
@@ -90,6 +87,7 @@ class NuScenesAtlasNeck(nn.Module):
 
     def init_weights(self):
         pass
+
 
 # Everything below is copied from https://github.com/magicleap/Atlas/blob/master/atlas/backbone3d.py
 def get_norm_3d(norm, out_channels):
