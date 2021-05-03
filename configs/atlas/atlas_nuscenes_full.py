@@ -25,7 +25,7 @@ model = dict(
             type='SECOND',
             in_channels=256,
             norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
-            layer_nums=[1, 1, 1],
+            layer_nums=[1, 2, 3],
             layer_strides=[1, 2, 2],
             out_channels=[256, 256, 256]),
         neck=dict(
@@ -135,8 +135,8 @@ test_pipeline = [
     dict(type='Collect3D', keys=['img'])]
 
 data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=2,
+    samples_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
         type='RepeatDataset',
         times=1,
