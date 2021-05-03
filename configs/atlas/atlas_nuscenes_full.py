@@ -20,19 +20,19 @@ model = dict(
     neck_3d=dict(
         type='NuScenesAtlasNeck',
         in_channels=64,
-        out_channels=64,
+        out_channels=256,
         backbone=dict(
             type='SECOND',
-            in_channels=64,
+            in_channels=256,
             norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
             layer_nums=[1, 1, 1],
             layer_strides=[1, 2, 2],
-            out_channels=[64, 128, 256]),
+            out_channels=[256, 256, 256]),
         neck=dict(
             type='FPN',
             norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
             act_cfg=dict(type='ReLU'),
-            in_channels=[64, 128, 256],
+            in_channels=[256, 256, 256],
             out_channels=256,
             start_level=0,
             num_outs=3)),
