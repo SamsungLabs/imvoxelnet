@@ -90,6 +90,36 @@ class KittiAtlasNeckV2(nn.Module):
 
 
 @NECKS.register_module()
+class KittiAtlasNeckV3(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.model = nn.Sequential(
+            BasicBlock3d(in_channels, in_channels),
+            self._get_conv(in_channels, in_channels * 2),
+            BasicBlock3d(in_channels * 2, in_channels * 2),
+            self._get_conv(in_channels * 2, in_channels * 4),
+            BasicBlock3d(in_channels * 4, in_channels * 4),
+            self._get_conv(in_channels * 4, out_channels, 1, 0)
+        )
+
+    @staticmethod
+    def _get_conv(in_channels, out_channels, stride=(1, 1, 2), padding=1):
+        return nn.Sequential(
+            nn.Conv3d(in_channels, out_channels, 3, stride=stride, padding=padding),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    @auto_fp16()
+    def forward(self, x):
+        x = self.model.forward(x)
+        return [x[..., 0].transpose(-1, -2)]
+
+    def init_weights(self):
+        pass
+
+
+@NECKS.register_module()
 class NuScenesAtlasNeck(nn.Module):
     def __init__(self, in_channels, out_channels, backbone, neck):
         super().__init__()
