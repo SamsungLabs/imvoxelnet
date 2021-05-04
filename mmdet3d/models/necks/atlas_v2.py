@@ -107,7 +107,7 @@ class NuScenesAtlasNeckV2(nn.Module):
             y = self.laterals[i](torch.mean(xs[i], dim=-1))
             x = (x + y) / 2
             x = self.up_layers[i](x)
-            outs.append(self.out_convs[i](x))
+            outs.append(self.out_convs[i](x).transpose(-1, -2))
         return outs[::-1]
 
     def init_weights(self):

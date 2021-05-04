@@ -167,7 +167,7 @@ total_epochs = 12
 
 checkpoint_config = dict(interval=1)
 log_config = dict(
-    interval=1,  # todo: 50
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
