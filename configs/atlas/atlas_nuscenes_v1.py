@@ -18,48 +18,24 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='NuScenesAtlasNeck',
+        type='NuScenesAtlasNeckV3',
         in_channels=64,
-        out_channels=256,
-        backbone=dict(
-            type='SECOND',
-            in_channels=256,
-            norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
-            layer_nums=[1, 2, 3],
-            layer_strides=[1, 2, 2],
-            out_channels=[256, 256, 256]),
-        neck=dict(
-            type='FPN',
-            norm_cfg=dict(type='naiveSyncBN2d', eps=1e-3, momentum=0.01),
-            act_cfg=dict(type='ReLU'),
-            in_channels=[256, 256, 256],
-            out_channels=256,
-            start_level=0,
-            num_outs=3)),
+        out_channels=256),
     bbox_head=dict(
         type='Anchor3DHead',
-        num_classes=10,
+        num_classes=1,
         in_channels=256,
         feat_channels=256,
         use_direction_classifier=True,
         anchor_generator=dict(
-            type='AlignedAnchor3DRangeGenerator',
-            ranges=[[-50, -50, -1.8, 50, 50, -1.8]],
-            scales=[1, 2, 4],
-            sizes=[
-                [0.8660, 2.5981, 1.],  # 1.5/sqrt(3)
-                [0.5774, 1.7321, 1.],  # 1/sqrt(3)
-                [1., 1., 1.],
-                [0.4, 0.4, 1],
-            ],
-            custom_values=[0, 0],
-            rotations=[0, 1.57],
-            reshape_out=True),
+            type='Anchor3DRangeGenerator',
+            sizes=[[1.98, 4.67, 1.74]],
+            ranges=[[-49.92, -49.92, -1.0, 49.92 - .32 * 2, 49.92 - .32 * 2, -1.0]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
         dir_limit_offset=0,
-        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder', code_size=9),
+        bbox_coder=dict(type='DeltaXYZWLHRBBoxCoder'),
         loss_cls=dict(
             type='FocalLoss',
             use_sigmoid=True,
@@ -69,8 +45,8 @@ model = dict(
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
-    n_voxels=(200, 200, 8),
-    voxel_size=(.5, .5, .5))
+    n_voxels=(312, 312, 12),
+    voxel_size=(.32, .32, .32))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
@@ -80,7 +56,6 @@ train_cfg = dict(
         min_pos_iou=0.3,
         ignore_iof_thr=-1),
     allowed_border=0,
-    code_weight=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
     pos_weight=-1,
     debug=False)
 test_cfg = dict(
@@ -93,9 +68,9 @@ test_cfg = dict(
     max_num=500)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'NuScenesFullMultiViewDataset'
+dataset_type = 'NuScenesMultiViewDataset'
 data_root = 'data/nuscenes/'
-point_cloud_range = [-50, -50, -3, 50, 50, 1]
+point_cloud_range = [-49.92, -49.92, -2.92, 49.92, 49.92, 0.92]
 class_names = [
     'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
     'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
