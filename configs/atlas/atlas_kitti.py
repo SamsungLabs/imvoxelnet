@@ -16,7 +16,7 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='KittiAtlasNeck',
+        type='KittiAtlasNeckV3',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
@@ -42,8 +42,8 @@ model = dict(
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=2.0),
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
-    n_voxels=(216, 248, 8),
-    voxel_size=(.32, .32, .5))
+    n_voxels=(216, 248, 12),
+    voxel_size=(.32, .32, .32))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
@@ -105,7 +105,7 @@ test_pipeline = [
     dict(type='Collect3D', keys=['img'])]
 
 data = dict(
-    samples_per_gpu=6,
+    samples_per_gpu=4,
     workers_per_gpu=3,
     train=dict(
         type='RepeatDataset',
