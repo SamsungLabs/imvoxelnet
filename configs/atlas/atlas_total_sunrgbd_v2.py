@@ -35,8 +35,8 @@ model = dict(
         n_channels=64,
         n_convs=0,
         n_reg_outs=7),
-    n_voxels=(160, 160, 32),
-    voxel_size=(.04, .04, .08))
+    n_voxels=(80, 80, 32),
+    voxel_size=(.08, .08, .08))
 train_cfg = dict()
 test_cfg = dict(
     nms_pre=1000,
@@ -74,8 +74,8 @@ test_pipeline = [
     dict(type='DefaultFormatBundle3D', class_names=class_names, with_label=False),
     dict(type='Collect3D', keys=['img'])]
 data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=2,
+    samples_per_gpu=4,
+    workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
         times=2,
