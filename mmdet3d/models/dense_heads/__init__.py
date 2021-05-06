@@ -8,7 +8,7 @@ from .ssd_3d_head import SSD3DHead
 from .vote_head import VoteHead
 from .fcos_3d_head import FCOS3DHead
 from .transformer_3d_head import Transformer3DHead
-from .voxel_fcos_head import SUNRGBDVoxelFCOSHead, ScanNetVoxelFCOSHead, SUNRGBDVoxelFCOSHeadV2
+from .voxel_fcos_head import SUNRGBDVoxelFCOSHead, ScanNetVoxelFCOSHead
 from .layout_head import LayoutHead
 
 __all__ = [
