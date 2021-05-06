@@ -549,3 +549,25 @@ def compute_centerness(bbox_targets):
                          z_dims.min(dim=-1)[0] / z_dims.max(dim=-1)[0]
     # todo: sqrt ?
     return torch.sqrt(centerness_targets)
+
+
+@HEADS.register_module()
+class SUNRGBDVoxelFCOSHeadV2(SUNRGBDVoxelFCOSHead):
+    @staticmethod
+    def _bbox_pred_to_bbox(points, bbox_pred):
+        if bbox_pred.shape[0] == 0:
+            return bbox_pred
+        angle = torch.atan2(points[:, 0], -points[:, 1]) + bbox_pred[:, 6]
+        shift = torch.stack((
+            (bbox_pred[:, 1] - bbox_pred[:, 0]) / 2,
+            (bbox_pred[:, 3] - bbox_pred[:, 2]) / 2,
+            (bbox_pred[:, 5] - bbox_pred[:, 4]) / 2
+        ), dim=-1).view(-1, 1, 3)
+        shift = rotation_3d_in_axis(shift, angle, axis=2)[:, 0, :]
+        center = points + shift
+        size = torch.stack((
+            bbox_pred[:, 0] + bbox_pred[:, 1],
+            bbox_pred[:, 2] + bbox_pred[:, 3],
+            bbox_pred[:, 4] + bbox_pred[:, 5]
+        ), dim=-1)
+        return torch.cat((center, size, angle[:, None]), dim=-1)
