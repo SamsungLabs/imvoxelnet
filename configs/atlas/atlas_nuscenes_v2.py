@@ -9,14 +9,16 @@ model = dict(
         frozen_stages=1,
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
-        style='pytorch'),
+        style='pytorch',
+        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
+        stage_with_dcn=(False, False, True, True)),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='NuScenesAtlasNeckV3',
+        type='KittiAtlasNeckV3',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
@@ -28,7 +30,7 @@ model = dict(
         anchor_generator=dict(
             type='Anchor3DRangeGenerator',
             sizes=[[1.98, 4.67, 1.74]],
-            ranges=[[-49.92, -49.92, -1.0, 49.92 - .32 * 2, 49.92 - .32 * 2, -1.0]]),
+            ranges=[[-49.92, -49.92, -1.0, 49.92 - .32, 49.92 - .32, -1.0]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
