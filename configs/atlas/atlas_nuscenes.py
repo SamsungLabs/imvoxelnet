@@ -18,7 +18,7 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='KittiAtlasNeck',
+        type='NuScenesAtlasNeckV3',
         in_channels=64,
         out_channels=256),
     bbox_head=dict(
@@ -30,7 +30,7 @@ model = dict(
         anchor_generator=dict(
             type='Anchor3DRangeGenerator',
             sizes=[[1.98, 4.67, 1.74]],
-            ranges=[[-50, -50, -1.0, 50 - .5, 50 - .5, -1.0]]),
+            ranges=[[-49.92, -49.92, -1.0, 49.92 - .32 * 2, 49.92 - .32 * 2, -1.0]]),
         assigner_per_size=False,
         diff_rad_by_sin=True,
         dir_offset=0.7854,  # pi/4
@@ -45,8 +45,8 @@ model = dict(
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
         loss_dir=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.2)),
-    n_voxels=(200, 200, 8),
-    voxel_size=(.5, .5, .5))
+    n_voxels=(312, 312, 12),
+    voxel_size=(.32, .32, .32))
 train_cfg = dict(
     assigner=dict(
         type='MaxIoUAssigner',
@@ -70,7 +70,7 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375],
 
 dataset_type = 'NuScenesMultiViewDataset'
 data_root = 'data/nuscenes/'
-point_cloud_range = [-50, -50, -3, 50, 50, 1]
+point_cloud_range = [-49.92, -49.92, -2.92, 49.92, 49.92, 0.92]
 class_names = [
     'car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle',
     'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
@@ -110,8 +110,8 @@ test_pipeline = [
     dict(type='Collect3D', keys=['img'])]
 
 data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=2,
+    samples_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
         type='RepeatDataset',
         times=1,
