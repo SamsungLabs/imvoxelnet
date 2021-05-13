@@ -142,7 +142,7 @@ class ScanNetMonocularData(ScanNetData):
                     break
         info['axis_align_matrix'] = axis_align_matrix
 
-        frame_sub_path = f'sens_reader_100/scans/{sample_idx}/out'
+        frame_sub_path = f'sens_reader/scans/{sample_idx}/out'
         frame_path = osp.join(self.root_dir, frame_sub_path)
         base_file_names = {x.split('.')[0] for x in os.listdir(frame_path)}
         base_file_names.remove('_info')

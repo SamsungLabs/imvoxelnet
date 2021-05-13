@@ -23,10 +23,11 @@ class ScanNetMultiViewDataset(MultiViewMixin, Custom3DDataset):
             extrinsic = np.linalg.inv(info['axis_align_matrix'] @ info['pose'][i])
             input_dict['lidar2img'].append(extrinsic.astype(np.float32))
         input_dict = dict(input_dict)
-        if info['annos']['gt_num'] != 0:
-            origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
-        else:
-            origin = np.array([0, 0, 0])
+        # if info['annos']['gt_num'] != 0:
+        #     origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
+        # else:
+        #     origin = np.array([0, 0, 0])
+        origin = np.array([.0, .0, .5])
         input_dict['lidar2img'] = dict(
             extrinsic=input_dict['lidar2img'],
             intrinsic=info['intrinsic'].astype(np.float32),
