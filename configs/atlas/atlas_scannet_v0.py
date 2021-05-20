@@ -63,7 +63,7 @@ train_pipeline = [
 test_pipeline = [
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=50,
+        n_images=100,
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
