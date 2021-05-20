@@ -49,14 +49,14 @@ train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
         type='ScanNetMultiViewPipeline',
-        n_images=5,
+        n_images=20,
         transforms=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size=(480, 640))
         ]),
-    dict(type='RandomShiftOrigin', std=(.5, .5, .0)),
+    dict(type='RandomShiftOrigin', std=(.7, .7, .0)),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
