@@ -5,7 +5,12 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 
-class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser', 'night_stand', 'sink', 'lamp')
+class_names = (
+    'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter',
+    'blinds', 'desk', 'shelves', 'curtain', 'dresser', 'pillow', 'mirror', 'clothes', 'books',
+    'fridge', 'tv', 'paper', 'towel', 'shower_curtain', 'box', 'whiteboard', 'person', 'night_stand', 'toilet',
+    'sink', 'lamp', 'bathtub', 'bag'
+)
 
 
 def run(path):

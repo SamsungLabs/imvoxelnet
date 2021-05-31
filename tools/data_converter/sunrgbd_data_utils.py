@@ -66,14 +66,23 @@ class SUNRGBDData(object):
         use_v1 (bool): Whether to use v1. Default: False.
     """
 
-    def __init__(self, root_path, split='train', use_v1=False):
+    def __init__(self, root_path, split='train', use_v1=False, monocular=False):
         self.root_dir = root_path
         self.split = split
         self.split_dir = osp.join(root_path, 'sunrgbd_trainval')
-        self.classes = [
-            'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-            'night_stand', 'bookshelf', 'bathtub'
-        ]
+        if monocular:
+            # follow https://github.com/thusiyuan/cooperative_scene_parsing/blob/master/preprocess/sunrgbd/sunrgbd_process.py#L36
+            self.classes = [
+                'recycle_bin', 'cpu', 'paper', 'toilet', 'stool', 'whiteboard', 'coffee_table', 'picture',
+                'keyboard', 'dresser', 'painting', 'bookshelf', 'night_stand', 'endtable', 'drawer', 'sink',
+                'monitor', 'computer', 'cabinet', 'shelf', 'lamp', 'garbage_bin', 'box', 'bed', 'sofa',
+                'sofa_chair', 'pillow', 'desk', 'table', 'chair'
+            ]
+        else:
+            self.classes = [
+                'bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
+                'night_stand', 'bookshelf', 'bathtub'
+            ]
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {
             label: self.classes[label]

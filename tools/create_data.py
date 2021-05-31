@@ -127,7 +127,7 @@ def scannet_data_prep(root_path, info_prefix, out_dir, workers, monocular):
         root_path, info_prefix, out_dir, workers=workers, monocular=monocular)
 
 
-def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers):
+def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers, monocular):
     """Prepare the info file for sunrgbd dataset.
 
     Args:
@@ -137,7 +137,7 @@ def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers):
         workers (int): Number of threads to be used.
     """
     indoor.create_indoor_info_file(
-        root_path, info_prefix, out_dir, workers=workers, monocular=False)
+        root_path, info_prefix, out_dir, workers=workers, monocular=monocular)
 
 
 def waymo_data_prep(root_path,
@@ -298,4 +298,13 @@ if __name__ == '__main__':
             info_prefix=args.extra_tag,
             out_dir=args.out_dir,
             workers=args.workers,
+            monocular=False
+        )
+    elif args.dataset == 'sunrgbd_monocular':
+        sunrgbd_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+            workers=args.workers,
+            monocular=True
         )
