@@ -52,7 +52,7 @@ class SUNRGBDMonocularDataset(MultiViewMixin, SUNRGBDDataset):
 
 
 @DATASETS.register_module()
-class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
+class SunRgbdMultiViewDataset(SUNRGBDMonocularDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
         img_filename = osp.join(self.data_root, info['image']['image_path'])
@@ -81,7 +81,7 @@ class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
 
 
 @DATASETS.register_module()
-class SUNRGBDPerspectiveMultiViewDataset(SUNRGBDMultiViewDataset):
+class SunRgbdPerspectiveMultiViewDataset(SunRgbdMultiViewDataset):
     def evaluate(self,
                  results,
                  metric=None,
@@ -100,7 +100,7 @@ class SUNRGBDPerspectiveMultiViewDataset(SUNRGBDMultiViewDataset):
 
 
 @DATASETS.register_module()
-class SUNRGBDTotalMultiViewDataset(SUNRGBDMultiViewDataset):
+class SunRgbdTotalMultiViewDataset(SunRgbdMultiViewDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
         input_dict = super().get_data_info(index)

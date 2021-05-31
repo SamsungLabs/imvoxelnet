@@ -1,5 +1,5 @@
 model = dict(
-    type='AtlasDetector',
+    type='ImVoxelNet',
     pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',
@@ -16,14 +16,14 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='AtlasNeck',
+        type='ImVoxelNeck',
         channels=[64, 128, 256, 512],
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False),
     bbox_head=dict(
-        type='ScanNetVoxelFCOSHead',
+        type='ScanNetImVoxelHead',
         loss_bbox=dict(type='AxisAlignedIoULoss', loss_weight=1.0),
         n_classes=18,
         n_channels=64,
@@ -48,7 +48,7 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=20,
         transforms=[
             dict(type='LoadImageFromFile'),
@@ -62,7 +62,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=50,
         transforms=[
             dict(type='LoadImageFromFile'),

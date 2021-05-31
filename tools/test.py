@@ -4,13 +4,12 @@ import os
 import torch
 from mmcv import Config, DictAction
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
-from mmcv.runner import get_dist_info, init_dist, load_checkpoint
+from mmcv.runner import get_dist_info, init_dist, load_checkpoint, wrap_fp16_model
 
 from mmdet3d.apis import single_gpu_test
 from mmdet3d.datasets import build_dataloader, build_dataset
 from mmdet3d.models import build_detector
 from mmdet.apis import multi_gpu_test, set_random_seed
-from mmdet.core import wrap_fp16_model
 from tools.fuse_conv_bn import fuse_module
 
 
@@ -146,6 +145,8 @@ def main():
             dataset.format_results(outputs, **kwargs)
         if args.eval:
             dataset.evaluate(outputs, args.eval, **kwargs)
+        if args.show:
+            dataset.show(outputs, args.show_dir)
 
 
 if __name__ == '__main__':

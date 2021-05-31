@@ -1,5 +1,5 @@
 model = dict(
-    type='AtlasDetector',
+    type='ImVoxelNet',
     pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',
@@ -23,14 +23,14 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='AtlasNeck',
+        type='ImVoxelNeck',
         channels=[64, 128, 256, 512],
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False),
     bbox_head=dict(
-        type='SUNRGBDVoxelFCOSHead',
+        type='SunRgbdImVoxelHead',
         n_classes=33,
         n_channels=64,
         n_convs=0,
@@ -45,7 +45,7 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SUNRGBDTotalMultiViewDataset'
+dataset_type = 'SunRgbdTotalMultiViewDataset'
 data_root = 'data/sunrgbd/'
 class_names = [
     'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter',
@@ -57,10 +57,10 @@ class_names = [
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='SUNRGBDTotalLoadImageFromFile'),
+            dict(type='SunRgbdTotalLoadImageFromFile'),
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
@@ -68,7 +68,7 @@ train_pipeline = [
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=1,
         transforms=[
             dict(type='LoadImageFromFile'),

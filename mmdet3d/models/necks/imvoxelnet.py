@@ -6,7 +6,7 @@ from mmdet.models import NECKS
 
 
 @NECKS.register_module()
-class AtlasNeck(nn.Module):
+class ImVoxelNeck(nn.Module):
     def __init__(self, channels, out_channels, down_layers, up_layers, conditional):
         super().__init__()
         self.model = EncoderDecoder(channels=channels,
@@ -30,7 +30,7 @@ class AtlasNeck(nn.Module):
 
 
 @NECKS.register_module()
-class KittiAtlasNeckV3(nn.Module):
+class KittiImVoxelNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
@@ -62,7 +62,7 @@ class KittiAtlasNeckV3(nn.Module):
 
 
 @NECKS.register_module()
-class NuScenesAtlasNeckV3(nn.Module):
+class NuScenesImVoxelNeck(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(

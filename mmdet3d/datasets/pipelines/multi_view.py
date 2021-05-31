@@ -5,29 +5,7 @@ from mmdet.datasets.pipelines import Compose, RandomFlip, LoadImageFromFile
 
 
 @PIPELINES.register_module()
-class NuScenesMultiViewPipeline:
-    def __init__(self, transforms):
-        self.transforms = Compose(transforms)
-
-    def __call__(self, results):
-        aug_data = []
-        for i in range(len(results['img_info'])):
-            _results = dict()
-            for key in ['img_prefix', 'img_info', 'lidar2img']:
-                _results[key] = results[key][i]
-            for key in ['box_type_3d', 'box_mode_3d']:
-                _results[key] = results[key]
-            aug_data.append(self.transforms(_results))
-        # list of dict to dict of list
-        aug_data_dict = {key: [] for key in aug_data[0]}
-        for data in aug_data:
-            for key, val in data.items():
-                aug_data_dict[key].append(val)
-        return aug_data_dict
-
-
-@PIPELINES.register_module()
-class ScanNetMultiViewPipeline:
+class MultiViewPipeline:
     def __init__(self, transforms, n_images):
         self.transforms = Compose(transforms)
         self.n_images = n_images
@@ -35,19 +13,11 @@ class ScanNetMultiViewPipeline:
     def __call__(self, results):
         imgs = []
         extrinsics = []
-        # set flip flag for all images
-        flip = False
-        flip_direction = 'horizontal'
-        for transform in self.transforms.transforms:
-            if isinstance(transform, RandomFlip):
-                if np.random.random() > .5:
-                    flip = True
-
         ids = np.arange(len(results['img_info']))
         replace = True if self.n_images > len(ids) else False
         ids = np.random.choice(ids, self.n_images, replace=replace)
         for i in ids.tolist():
-            _results = dict(flip=flip, flip_direction=flip_direction)
+            _results = dict()
             for key in ['img_prefix', 'img_info']:
                 _results[key] = results[key][i]
             _results = self.transforms(_results)
@@ -109,7 +79,7 @@ class KittiRandomFlip:
 
 
 @PIPELINES.register_module()
-class SUNRGBDSetOrigin:
+class SunRgbdSetOrigin:
     def __call__(self, results):
         intrinsic = results['lidar2img']['intrinsic'][:3, :3]
         extrinsic = results['lidar2img']['extrinsic'][0][:3, :3]
@@ -123,7 +93,7 @@ class SUNRGBDSetOrigin:
 
 
 @PIPELINES.register_module()
-class SUNRGBDTotalLoadImageFromFile(LoadImageFromFile):
+class SunRgbdTotalLoadImageFromFile(LoadImageFromFile):
     def __call__(self, results):
         file_name = results['img_info']['filename']
         flip = file_name.endswith('_flip.jpg')
@@ -136,7 +106,7 @@ class SUNRGBDTotalLoadImageFromFile(LoadImageFromFile):
 
 
 @PIPELINES.register_module()
-class SUNRGBDRandomFlip:
+class SunRgbdRandomFlip:
     def __call__(self, results):
         if results['flip']:
             flip_matrix = np.eye(3)

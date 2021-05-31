@@ -1,5 +1,5 @@
 model = dict(
-    type='AtlasDetector',
+    type='ImVoxelNet',
     pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',
@@ -16,15 +16,15 @@ model = dict(
         out_channels=64,
         num_outs=4),
     neck_3d=dict(
-        type='AtlasNeck',
+        type='ImVoxelNeck',
         channels=[64, 128, 256, 512],
         out_channels=64,
         down_layers=[1, 2, 3, 4],
         up_layers=[3, 2, 1],
         conditional=False),
     bbox_head=dict(
-        type='SUNRGBDVoxelFCOSHead',
-        n_classes=30,
+        type='SunRgbdImVoxelHead',
+        n_classes=10,
         n_channels=64,
         n_convs=0,
         n_reg_outs=7),
@@ -38,17 +38,15 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SUNRGBDPerspectiveMultiViewDataset'
+dataset_type = 'SunRgbdMultiViewDataset'
 data_root = 'data/sunrgbd/'
-class_names = ('recycle_bin', 'cpu', 'paper', 'toilet', 'stool', 'whiteboard', 'coffee_table', 'picture',
-               'keyboard', 'dresser', 'painting', 'bookshelf', 'night_stand', 'endtable', 'drawer', 'sink',
-               'monitor', 'computer', 'cabinet', 'shelf', 'lamp', 'garbage_bin', 'box', 'bed', 'sofa',
-               'sofa_chair', 'pillow', 'desk', 'table', 'chair')
+class_names = ('bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
+               'night_stand', 'bookshelf', 'bathtub')
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=1,
         transforms=[
             dict(type='LoadImageFromFile'),
@@ -56,12 +54,12 @@ train_pipeline = [
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
-    dict(type='SUNRGBDRandomFlip'),
+    dict(type='SunrRgbdRandomFlip'),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
     dict(
-        type='ScanNetMultiViewPipeline',
+        type='MultiViewPipeline',
         n_images=1,
         transforms=[
             dict(type='LoadImageFromFile'),
@@ -79,7 +77,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'sunrgbd_perspective_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -87,7 +85,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -95,7 +93,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,

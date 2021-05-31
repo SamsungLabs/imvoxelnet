@@ -4,14 +4,14 @@ from mmdet.core import multi_apply, reduce_mean
 from mmdet.models.builder import HEADS, build_loss
 from mmcv.cnn import Scale, bias_init_with_prob, normal_init
 
-from mmdet3d.models.detectors.atlas import get_points
+from mmdet3d.models.detectors.imvoxelnet import get_points
 from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 from mmdet3d.core.post_processing import aligned_3d_nms, box3d_multiclass_nms
 
 INF = 1e8
 
 
-class VoxelFCOSHead(nn.Module):
+class ImVoxelHead(nn.Module):
     def __init__(self,
                  n_classes,
                  n_channels,
@@ -320,7 +320,7 @@ class VoxelFCOSHead(nn.Module):
 
 
 @HEADS.register_module()
-class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
+class SunRgbdImVoxelHead(ImVoxelHead):
     def forward_single(self, x, scale):
         reg = self.reg_convs(x)
         cls = self.cls_convs(x)
@@ -439,7 +439,7 @@ class SUNRGBDVoxelFCOSHead(VoxelFCOSHead):
 
 
 @HEADS.register_module()
-class ScanNetVoxelFCOSHead(VoxelFCOSHead):
+class ScanNetImVoxelHead(ImVoxelHead):
     def forward_single(self, x, scale):
         reg = self.reg_convs(x)
         cls = self.cls_convs(x)

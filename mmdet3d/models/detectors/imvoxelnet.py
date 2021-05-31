@@ -6,7 +6,7 @@ from mmdet3d.core import bbox3d2result
 
 
 @DETECTORS.register_module()
-class AtlasDetector(BaseDetector):
+class ImVoxelNet(BaseDetector):
     def __init__(self,
                  backbone,
                  neck,

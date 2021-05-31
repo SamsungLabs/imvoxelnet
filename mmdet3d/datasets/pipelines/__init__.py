@@ -9,10 +9,9 @@ from .transforms_3d import (BackgroundPointsFilter, GlobalRotScaleTrans,
                             IndoorPointSample, ObjectNoise, ObjectRangeFilter,
                             ObjectSample, PointShuffle, PointsRangeFilter,
                             RandomFlip3D, VoxelBasedPointSampler)
-from .specific import (NuScenesMultiViewPipeline, ScanNetMultiViewPipeline,
-                       RandomShiftOrigin, KittiSetOrigin, KittiRandomFlip,
-                       SUNRGBDSetOrigin, SUNRGBDTotalLoadImageFromFile,
-                       SUNRGBDRandomFlip)
+from .multi_view import (MultiViewPipeline, RandomShiftOrigin, KittiSetOrigin,
+                         KittiRandomFlip, SunRgbdSetOrigin, SunRgbdTotalLoadImageFromFile,
+                         SunRgbdRandomFlip)
 
 __all__ = [
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
@@ -21,7 +20,7 @@ __all__ = [
     'DefaultFormatBundle', 'DefaultFormatBundle3D', 'DataBaseSampler',
     'NormalizePointsColor', 'LoadAnnotations3D', 'IndoorPointSample',
     'PointSegClassMapping', 'MultiScaleFlipAug3D',
-    'NuScenesMultiViewPipeline', 'ScanNetMultiViewPipeline', 'RandomShiftOrigin',
-    'KittiSetOrigin', 'SUNRGBDSetOrigin', 'LoadPointsFromMultiSweeps',
+    'MultiViewPipeline', 'RandomShiftOrigin',
+    'KittiSetOrigin', 'SunRgbdSetOrigin', 'LoadPointsFromMultiSweeps',
     'BackgroundPointsFilter', 'VoxelBasedPointSampler'
 ]

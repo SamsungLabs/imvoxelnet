@@ -9,11 +9,10 @@ from .ssd3dnet import SSD3DNet
 from .votenet import VoteNet
 from .voxelnet import VoxelNet
 from .fcos3d import FCOS3D, NuScenesMultiViewFCOS3D
-from .atlas import AtlasDetector
-from .layout import LayoutDetector
+from .imvoxelnet import ImVoxelNet
 
 __all__ = [
     'Base3DDetector', 'VoxelNet', 'DynamicVoxelNet', 'MVXTwoStageDetector',
     'DynamicMVXFasterRCNN', 'MVXFasterRCNN', 'PartA2', 'VoteNet', 'H3DNet',
-    'CenterPoint', 'SSD3DNet', 'FCOS3D', 'NuScenesMultiViewFCOS3D', 'AtlasDetector', 'LayoutDetector'
+    'CenterPoint', 'SSD3DNet', 'FCOS3D', 'NuScenesMultiViewFCOS3D', 'ImVoxelNet'
 ]

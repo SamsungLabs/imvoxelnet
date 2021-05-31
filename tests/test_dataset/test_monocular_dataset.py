@@ -64,7 +64,7 @@ def test_scannet_multi_view_dataset():
     pipeline = [
         dict(type='LoadAnnotations3D'),
         dict(
-            type='ScanNetMultiViewPipeline',
+            type='MultiViewPipeline',
             n_images=50,
             transforms=[
                 dict(type='LoadImageFromFile'),
@@ -92,10 +92,10 @@ def test_sunrgbd_total_multi_view_dataset():
     pipeline = [
         dict(type='LoadAnnotations3D'),
         dict(
-            type='ScanNetMultiViewPipeline',
+            type='MultiViewPipeline',
             n_images=1,
             transforms=[
-                dict(type='SUNRGBDTotalLoadImageFromFile'),
+                dict(type='SunRgbdTotalLoadImageFromFile'),
                 dict(type='Resize', img_scale=(640, 480), keep_ratio=True),
                 dict(type='Pad', size=(480, 640))]),
         dict(type='DefaultFormatBundle3D', class_names=class_names),
@@ -119,7 +119,7 @@ def test_sunrgbd_multi_view_dataset():
     pipeline = [
         dict(type='LoadAnnotations3D'),
         dict(
-            type='ScanNetMultiViewPipeline',
+            type='MultiViewPipeline',
             n_images=1,
             transforms=[
                 dict(type='LoadImageFromFile'),
@@ -150,7 +150,7 @@ def test_kitti_multi_view_dataset():
     pipeline = [
         dict(type='LoadAnnotations3D'),
         dict(
-            type='ScanNetMultiViewPipeline',
+            type='MultiViewPipeline',
             n_images=1,
             transforms=[
                 dict(type='LoadImageFromFile'),
@@ -189,7 +189,7 @@ def test_nuscenes_multi_view_dataset():
     train_pipeline = [
         dict(type='LoadAnnotations3D'),
         dict(
-            type='ScanNetMultiViewPipeline',
+            type='MultiViewPipeline',
             n_images=6,
             transforms=[
                 dict(type='LoadImageFromFile'),
