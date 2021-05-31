@@ -23,17 +23,17 @@ def create_indoor_info_file(data_path,
         workers (int): Number of threads to be used. Default: 4.
     """
     assert os.path.exists(data_path)
-    assert pkl_prefix in ['sunrgbd', 'scannet']
+    assert pkl_prefix in ['sunrgbd', 'sunrgbd_perspective', 'scannet']
     save_path = data_path if save_path is None else save_path
     assert os.path.exists(save_path)
 
     train_filename = os.path.join(save_path, f'{pkl_prefix}_infos_train.pkl')
     val_filename = os.path.join(save_path, f'{pkl_prefix}_infos_val.pkl')
-    if pkl_prefix == 'sunrgbd':
+    if pkl_prefix in ('sunrgbd', 'sunrgbd_perspective'):
         train_dataset = SUNRGBDData(
-            root_path=data_path, split='train', use_v1=use_v1)
+            root_path=data_path, split='train', use_v1=use_v1, monocular=monocular)
         val_dataset = SUNRGBDData(
-            root_path=data_path, split='val', use_v1=use_v1)
+            root_path=data_path, split='val', use_v1=use_v1, monocular=monocular)
     else:
         dataset = ScanNetMonocularData if monocular else ScanNetData
         train_dataset = dataset(root_path=data_path, split='train')

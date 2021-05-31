@@ -31,7 +31,7 @@ model = dict(
         conditional=False),
     bbox_head=dict(
         type='SUNRGBDVoxelFCOSHead',
-        n_classes=10,
+        n_classes=33,
         n_channels=64,
         n_convs=0,
         n_reg_outs=7),
@@ -47,8 +47,12 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375],
 
 dataset_type = 'SUNRGBDTotalMultiViewDataset'
 data_root = 'data/sunrgbd/'
-class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'desk', 'dresser',
-               'night_stand', 'sink', 'lamp')
+class_names = [
+    'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter',
+    'blinds', 'desk', 'shelves', 'curtain', 'dresser', 'pillow', 'mirror', 'clothes', 'books',
+    'fridge', 'tv', 'paper', 'towel', 'shower_curtain', 'box', 'whiteboard', 'person', 'night_stand', 'toilet',
+    'sink', 'lamp', 'bathtub', 'bag'
+]
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),

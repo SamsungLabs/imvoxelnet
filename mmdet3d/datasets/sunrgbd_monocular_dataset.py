@@ -81,6 +81,25 @@ class SUNRGBDMultiViewDataset(SUNRGBDMonocularDataset):
 
 
 @DATASETS.register_module()
+class SUNRGBDPerspectiveMultiViewDataset(SUNRGBDMultiViewDataset):
+    def evaluate(self,
+                 results,
+                 metric=None,
+                 iou_thr=(0.15,),
+                 logger=None,
+                 show=False,
+                 out_dir=None):
+        return super().evaluate(
+            results=results,
+            metric=metric,
+            iou_thr=iou_thr,
+            logger=logger,
+            show=show,
+            out_dir=out_dir
+        )
+
+
+@DATASETS.register_module()
 class SUNRGBDTotalMultiViewDataset(SUNRGBDMultiViewDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
