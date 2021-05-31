@@ -2,6 +2,7 @@ import os
 import cv2
 import skimage.io
 import numpy as np
+import matplotlib.pyplot as plt
 
 from .builder import DATASETS
 
@@ -79,29 +80,9 @@ class CBGSDataset(object):
 
 
 class MultiViewMixin:
-    # tab20 cmap from matplotlib
-    COLORS = [
-        [31, 119, 180],
-        [174, 199, 232],
-        [256, 127, 14],
-        [256, 187, 120],
-        [44, 160, 44],
-        [152, 223, 138],
-        [214, 39, 40],
-        [256, 152, 150],
-        [148, 103, 189],
-        [197, 176, 213],
-        [140, 86, 75],
-        [196, 156, 148],
-        [227, 119, 194],
-        [247, 182, 210],
-        [127, 127, 127],
-        [199, 199, 199],
-        [188, 189, 34],
-        [219, 219, 141],
-        [23, 190, 207],
-        [158, 218, 229]
-    ]
+    colors = np.multiply([
+        plt.cm.get_cmap('gist_ncar', 37)((i * 7 + 5) % 37)[:3] for i in range(37)
+    ], 255).astype(np.uint8).tolist()
 
     @staticmethod
     def draw_corners(img, corners, color, projection):
@@ -140,6 +121,6 @@ class MultiViewMixin:
                 scores = result['scores_3d'].numpy()
                 labels = result['labels_3d'].numpy()
                 for corner, score, label in zip(corners, scores, labels):
-                    self.draw_corners(img, corner, self.COLORS[label], projection)
+                    self.draw_corners(img, corner, self.colors[label], projection)
                 out_file_name = os.path.split(info['img_info'][j]['filename'])[-1][:-4]
                 skimage.io.imsave(os.path.join(out_dir, f'{out_file_name}.png'), img)
