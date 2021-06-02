@@ -17,7 +17,7 @@ RUN pip install mmdet==2.10.0
 
 # Install MMDetection
 RUN conda clean --all
-RUN git clone https://github.com/saic-vul/mmdetection3d.git /mmdetection3d
+RUN git clone https://github.com/saic-vul/imvoxelnet.git /mmdetection3d
 WORKDIR /mmdetection3d
 ENV FORCE_CUDA="1"
 RUN pip install -r requirements/build.txt
