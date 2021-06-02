@@ -31,7 +31,10 @@ This will generate annotations with official 10 object classes from
 set `--dataset sunrgbd_monocular`.
  * [Total3DUnderstanding](https://github.com/yinyunie/Total3DUnderstanding) benchmark deals with
 37 object classes along with camera pose and room layout estimation.
-   Download their preprocessed data for [train]() and [val]() and put it to `./data/sunrgbd`. Then run:
+   Download their preprocessed data as 
+   [train.json](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/sunrgbd_total_infos_train.json) and 
+   [val.json](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/sunrgbd_total_infos_val.json) 
+   and put it to `./data/sunrgbd`. Then run:
    ```shell
    python tools/data_converter/sunrgbd_total.py
    ```
@@ -81,12 +84,12 @@ python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
 
 | Dataset   | Object Classes | Download Link | Log |
 |:---------:|:--------------:|:-------------:|:---:|
-| SUN RGB-D | 37 from Total3dUnderstanding | [total_sunrgbd.pth]() | [total_sunrgbd.log]() |
-| SUN RGB-D | 30 from PerspectiveNet | [perspective_sunrgbd.pth]() | [perspective_sunrgbd.log]() |
-| SUN RGB-D | 10 from VoteNet | [sunrgbd.pth]() | [sunrgbd.log]() |
-| ScanNet   | 18 from VoteNet | [scannet.pth]() | [scannet.log]() |
-| KITTI     | Car | [kitti.pth]() | [kitti.log]() |
-| nuScenes  | Car | [nuscenes.pth]() | [nuscenes.log]() |
+| SUN RGB-D | 37 from Total3dUnderstanding | [total_sunrgbd.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210525_091810.pth) | [total_sunrgbd.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210525_091810_atlas_total_sunrgbd.log) |
+| SUN RGB-D | 30 from PerspectiveNet | [perspective_sunrgbd.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210526_072029.pth) | [perspective_sunrgbd.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210526_072029_atlas_perspective_sunrgbd.log) |
+| SUN RGB-D | 10 from VoteNet | [sunrgbd.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210428_124351.pth) | [sunrgbd.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210428_124351_atlas_sunrgbd.log) |
+| ScanNet   | 18 from VoteNet | [scannet.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210520_223109.pth) | [scannet.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210520_223109_atlas_scannet.log) |
+| KITTI     | Car | [kitti.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210503_214214.pth) | [kitti.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210503_214214_atlas_kitti.log) |
+| nuScenes  | Car | [nuscenes.pth](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210505_131108.pth) | [nuscenes.log](https://github.com/saic-vul/mmdetection3d/releases/download/v1.0/20210505_131108_atlas_nuscenes.log) |
 
 ### Example Detections
 
