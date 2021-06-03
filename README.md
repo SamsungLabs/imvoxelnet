@@ -107,7 +107,7 @@ python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
 
 ### Example Detections
 
-<p align="center"><img src="./resources/github.png" alt="drawing" width="90%"/></p>a
+<p align="center"><img src="./resources/github.png" alt="drawing" width="90%"/></p>
 
 ### Citation
 
