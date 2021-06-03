@@ -8,7 +8,7 @@ This repository contains implementation of the monocular/multi-view 3D object de
 > [Anton Konushin](https://scholar.google.com/citations?user=ZT_k-wMAAAAJ)
 > <br>
 > Samsung AI Center Moscow <br>
-> https://arxiv.org/abs/210?.?????
+> https://arxiv.org/abs/2106.01178
 
 <p align="center"><img src="./resources/scheme.png" alt="drawing" width="90%"/></p>
 
@@ -103,7 +103,7 @@ If you find this work useful for your research, please cite our paper:
 @article{rukhovich2021imvoxelnet,
   title={ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection},
   author={Danila Rukhovich, Anna Vorontsova, Anton Konushin},
-  journal={arXiv preprint arXiv:210?.?????},
+  journal={arXiv preprint arXiv:2106.01178},
   year={2021}
 }
 ```
