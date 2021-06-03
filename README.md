@@ -21,7 +21,7 @@ This implementation is based on [mmdetection3d](https://github.com/open-mmlab/mm
 Please refer to the original installation guide [install.md](docs/install.md).
 Also, [rotated_iou](https://github.com/lilanxiao/Rotated_IoU) should be installed.
 
-Most of the `ImVoxelNet`-related code locates in these files: 
+Most of the `ImVoxelNet`-related code locates in the following files: 
 [detectors/imvoxelnet.py](mmdet3d/models/detectors/imvoxelnet.py),
 [necks/imvoxelnet.py](mmdet3d/models/necks/imvoxelnet.py),
 [dense_heads/imvoxel_head.py](mmdet3d/models/dense_heads/imvoxel_head.py),
@@ -30,14 +30,14 @@ Most of the `ImVoxelNet`-related code locates in these files:
 ### Datasets
 
 We support three benchmarks based on the **SUN RGB-D** dataset.
- * Default [sunrgbd](data/sunrgbd) instruction follows the 
-   [VoteNet](https://github.com/facebookresearch/votenet) benchmark with 10 object classes.
- * With minor modification the same instruction can be applied for the
-   [PerspectiveNet](https://papers.nips.cc/paper/2019/hash/b87517992f7dce71b674976b280257d2-Abstract.html)
-   benchmark with 30 object classes. Just run `create_data.py` with `--dataset sunrgbd_monocular`.
+ * For the [VoteNet](https://github.com/facebookresearch/votenet) benchmark with 10 object categories, 
+   you should follow the instructions in [sunrgbd](data/sunrgbd). 
+ * For the [PerspectiveNet](https://papers.nips.cc/paper/2019/hash/b87517992f7dce71b674976b280257d2-Abstract.html)
+   benchmark with 30 object categories, the same instructions can be applied; 
+   you only need to pass `--dataset sunrgbd_monocular` when running `create_data.py`.
  * The [Total3DUnderstanding](https://github.com/yinyunie/Total3DUnderstanding)
-   benchmark deals with 37 object classes along with camera pose and room layout estimation.
-   Download their preprocessed data as 
+   benchmark implies detecting objects of 37 categories along with camera pose and room layout estimation.
+   Download the preprocessed data as 
    [train.json](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/sunrgbd_total_infos_train.json) and 
    [val.json](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/sunrgbd_total_infos_val.json) 
    and put it to `./data/sunrgbd`. Then run:
@@ -46,9 +46,9 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
    ```
 
 **ScanNet.** Please follow instructions in [scannet](data/scannet).
-Note that this script works with point clouds and does not accept RGB images.
-RGB images may be obtained by running a script from the official [SensReader](https://github.com/ScanNet/ScanNet/tree/master/SensReader/python).
-Then, put the extracted camera poses and JPG images along with other `ScanNet` data:
+Note that `create_data.py` works with point clouds, not RGB images; thus, you should do some preprocessing before running `create_data.py`.
+1. First, you should obtain RGB images. We recommend using a script from [SensReader](https://github.com/ScanNet/ScanNet/tree/master/SensReader/python).
+2. Then, put the camera poses and JPG images in the folder with other `ScanNet` data:
 ```
 scannet
 ├── sens_reader
@@ -61,7 +61,7 @@ scannet
 │   │   │   │   ├── ....
 │   │   ├── ...
 ```
-Now, run `create_data.py` with `--dataset scannet_monocular`.
+Now, you may run `create_data.py` with `--dataset scannet_monocular`.
 
 For **KITTI** and **nuScenes**, please follow instructions in [getting_started.md](docs/getting_started.md).
 For `nuScenes`, set `--dataset nuscenes_monocular`.
@@ -69,15 +69,26 @@ For `nuScenes`, set `--dataset nuscenes_monocular`.
 ### Getting Started
 
 Please see [getting_started.md](docs/getting_started.md) for basic usage examples.
-Original [dist_train](tools/dist_train.sh) and [dist_test](tools/dist_test.sh) scripts can be run
-with `ImVoxelNet` [configs](configs/imvoxelnet):
+
+**Training**
+
+To start training, run [dist_train](tools/dist_train.sh) with `ImVoxelNet` [configs](configs/imvoxelnet):
 ```shell
 bash tools/dist_train.sh configs/imvoxelnet/imvoxelnet_kitti.py 8
+```
+
+**Testing**
+
+Test pre-trained model using [dist_test](tools/dist_test.sh) with `ImVoxelNet` [configs](configs/imvoxelnet):
+```shell
 bash tools/dist_test.sh configs/imvoxelnet/imvoxelnet_kitti.py \
     work_dirs/imvoxelnet_kitti/latest.pth 8 --eval mAP
 ```
+
+**Visualization**
+
 Visualizations can be created with [test](tools/test.py) script. 
-For better visualizations, you may set `score_thr` in configs to `0.15` or more.
+For better visualizations, you may set `score_thr` in configs to `0.15` or more:
 ```shell
 python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
     work_dirs/imvoxelnet_kitti/latest.pth --show
@@ -96,7 +107,7 @@ python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
 
 ### Example Detections
 
-<p align="center"><img src="./resources/github.png" alt="drawing" width="90%"/></p>
+<p align="center"><img src="./resources/github.png" alt="drawing" width="90%"/></p>a
 
 ### Citation
 
