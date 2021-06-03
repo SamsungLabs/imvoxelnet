@@ -1,3 +1,5 @@
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/imvoxelnet-image-to-voxels-projection-for/monocular-3d-object-detection-on-sun-rgb-d)](https://paperswithcode.com/sota/monocular-3d-object-detection-on-sun-rgb-d?p=imvoxelnet-image-to-voxels-projection-for)
+
 # ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection
 
 This repository contains implementation of the monocular/multi-view 3D object detector ImVoxelNet, introduced in our paper:
