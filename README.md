@@ -1,4 +1,5 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/imvoxelnet-image-to-voxels-projection-for/monocular-3d-object-detection-on-sun-rgb-d)](https://paperswithcode.com/sota/monocular-3d-object-detection-on-sun-rgb-d?p=imvoxelnet-image-to-voxels-projection-for)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/imvoxelnet-image-to-voxels-projection-for/room-layout-estimation-on-sun-rgb-d)](https://paperswithcode.com/sota/room-layout-estimation-on-sun-rgb-d?p=imvoxelnet-image-to-voxels-projection-for)
 
 # ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection
 
