@@ -95,7 +95,8 @@ Visualizations can be created with [test](tools/test.py) script.
 For better visualizations, you may set `score_thr` in configs to `0.15` or more:
 ```shell
 python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
-    work_dirs/imvoxelnet_kitti/latest.pth --show
+    work_dirs/imvoxelnet_kitti/latest.pth --show \
+    --show-dir work_dirs/imvoxelnet_kitti
 ```
 
 ### Models
