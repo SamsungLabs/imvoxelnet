@@ -52,7 +52,7 @@ train_pipeline = [
         n_images=1,
         transforms=[
             dict(type='LoadImageFromFile'),
-            dict(type='RandomFlip'),
+            dict(type='RandomFlip', flip_ratio=0.5),
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
