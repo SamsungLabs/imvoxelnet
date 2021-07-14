@@ -22,8 +22,8 @@ This repository contains implementation of the monocular/multi-view 3D object de
 For convenience, we provide a [Dockerfile](docker/Dockerfile). Alternatively, you can install all required packages manually.
 
 This implementation is based on [mmdetection3d](https://github.com/open-mmlab/mmdetection3d) framework.
-Please refer to the original installation guide [install.md](docs/install.md).
-Also, [rotated_iou](https://github.com/lilanxiao/Rotated_IoU) should be installed.
+Please refer to the original installation guide [install.md](docs/install.md), replacing `open-mmlab/mmdetection3d` with `saic-vul/iterdet`.
+Also, [rotated_iou](https://github.com/lilanxiao/Rotated_IoU) should be installed with [these](https://github.com/saic-vul/imvoxelnet/blob/master/docker/Dockerfile#L31-L34) 4 commands.
 
 Most of the `ImVoxelNet`-related code locates in the following files: 
 [detectors/imvoxelnet.py](mmdet3d/models/detectors/imvoxelnet.py),
@@ -52,7 +52,9 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
 **ScanNet.** Please follow instructions in [scannet](data/scannet).
 Note that `create_data.py` works with point clouds, not RGB images; thus, you should do some preprocessing before running `create_data.py`.
 1. First, you should obtain RGB images. We recommend using a script from [SensReader](https://github.com/ScanNet/ScanNet/tree/master/SensReader/python).
-2. Then, put the camera poses and JPG images in the folder with other `ScanNet` data:
+2. Then, copy the camera pose `.txt` files and `.jpg` images to the `scannet/sens_reader` folder.
+3. Copy axis alignment matrix `.txt` files to the `scannet/txts` folder.
+4. Move the results of `batch_load_scannet_data.py` to the `scannet/mmdetection3d` folder. Final directory structure:
 ```
 scannet
 ├── sens_reader
@@ -62,8 +64,18 @@ scannet
 │   │   │   │   ├── frame-000001.color.jpg
 │   │   │   │   ├── frame-000001.pose.txt
 │   │   │   │   ├── frame-000002.color.jpg
-│   │   │   │   ├── ....
+│   │   │   │   ├── ...
 │   │   ├── ...
+├── txts
+│   ├── scene0000_00.txt
+│   ├── ...
+├── mmdetection3d
+│   ├── scene0000_00_bbox.npy
+│   ├── scene0000_00_ins_label.npy
+│   ├── scene0000_00_sem_label.npy
+│   ├── scene0000_00_vert.npy
+│   ├── scene0000_01_bbox.npy
+│   ├── ...
 ```
 Now, you may run `create_data.py` with `--dataset scannet_monocular`.
 
