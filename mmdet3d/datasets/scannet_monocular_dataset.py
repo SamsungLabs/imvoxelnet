@@ -16,21 +16,18 @@ class ScanNetMultiViewDataset(MultiViewMixin, Custom3DDataset):
     def get_data_info(self, index):
         info = self.data_infos[index]
         input_dict = defaultdict(list)
-        for i in range(len(info['image_paths'])):
-            img_filename = osp.join(self.data_root, info['image_paths'][i])
+        axis_align_matrix = info['annos']['axis_align_matrix'].astype(np.float32)
+        for i in range(len(info['img_paths'])):
+            img_filename = osp.join(self.data_root, info['img_paths'][i])
             input_dict['img_prefix'].append(None)
             input_dict['img_info'].append(dict(filename=img_filename))
-            extrinsic = np.linalg.inv(info['axis_align_matrix'] @ info['pose'][i])
+            extrinsic = np.linalg.inv(axis_align_matrix @ info['extrinsics'][i])
             input_dict['lidar2img'].append(extrinsic.astype(np.float32))
         input_dict = dict(input_dict)
-        # if info['annos']['gt_num'] != 0:
-        #     origin = np.mean(info['annos']['gt_boxes_upright_depth'][:, :3], axis=0)
-        # else:
-        #     origin = np.array([0, 0, 0])
         origin = np.array([.0, .0, .5])
         input_dict['lidar2img'] = dict(
             extrinsic=input_dict['lidar2img'],
-            intrinsic=info['intrinsic'].astype(np.float32),
+            intrinsic=info['intrinsics'].astype(np.float32),
             origin=origin.astype(np.float32)
         )
 

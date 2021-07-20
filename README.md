@@ -4,6 +4,7 @@
 # ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection
 
 **News**:
+ * :fire: July, 2021. We update `ScanNet` image preprocessing both [here](https://github.com/saic-vul/imvoxelnet/pull/21) and in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d/pull/696).
  * :fire: June, 2021. `ImVoxelNet` for `KITTI` is now [supported](https://github.com/open-mmlab/mmdetection3d/tree/master/configs/imvoxelnet) in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d).
 
 This repository contains implementation of the monocular/multi-view 3D object detector ImVoxelNet, introduced in our paper:
@@ -49,36 +50,7 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
    python tools/data_converter/sunrgbd_total.py
    ```
 
-**ScanNet.** Please follow instructions in [scannet](data/scannet).
-Note that `create_data.py` works with point clouds, not RGB images; thus, you should do some preprocessing before running `create_data.py`.
-1. First, you should obtain RGB images. We recommend using a script from [SensReader](https://github.com/ScanNet/ScanNet/tree/master/SensReader/python).
-2. Then, copy the camera pose `.txt` files and `.jpg` images to the `scannet/sens_reader` folder.
-3. Copy axis alignment matrix `.txt` files to the `scannet/txts` folder.
-4. Move the results of `batch_load_scannet_data.py` to the `scannet/mmdetection3d` folder. Final directory structure:
-```
-scannet
-├── sens_reader
-│   ├── scans
-│   │   ├── scene0000_00
-│   │   │   ├── out
-│   │   │   │   ├── frame-000001.color.jpg
-│   │   │   │   ├── frame-000001.pose.txt
-│   │   │   │   ├── frame-000002.color.jpg
-│   │   │   │   ├── ...
-│   │   ├── ...
-├── txts
-│   ├── scene0000_00.txt
-│   ├── ...
-├── mmdetection3d
-│   ├── scene0000_00_bbox.npy
-│   ├── scene0000_00_ins_label.npy
-│   ├── scene0000_00_sem_label.npy
-│   ├── scene0000_00_vert.npy
-│   ├── scene0000_01_bbox.npy
-│   ├── ...
-```
-Now, you may run `create_data.py` with `--dataset scannet_monocular`.
-
+For **ScanNet** please follow instructions in [scannet](data/scannet).
 For **KITTI** and **nuScenes**, please follow instructions in [getting_started.md](docs/getting_started.md).
 For `nuScenes`, set `--dataset nuscenes_monocular`.
 
