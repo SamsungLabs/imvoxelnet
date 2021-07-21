@@ -39,7 +39,7 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
    you should follow the instructions in [sunrgbd](data/sunrgbd). 
  * For the [PerspectiveNet](https://papers.nips.cc/paper/2019/hash/b87517992f7dce71b674976b280257d2-Abstract.html)
    benchmark with 30 object categories, the same instructions can be applied; 
-   you only need to pass `--dataset sunrgbd_monocular` when running `create_data.py`.
+   you only need to set `dataset` argument to `sunrgbd_monocular` when running `create_data.py`.
  * The [Total3DUnderstanding](https://github.com/yinyunie/Total3DUnderstanding)
    benchmark implies detecting objects of 37 categories along with camera pose and room layout estimation.
    Download the preprocessed data as 
@@ -52,7 +52,7 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
 
 For **ScanNet** please follow instructions in [scannet](data/scannet).
 For **KITTI** and **nuScenes**, please follow instructions in [getting_started.md](docs/getting_started.md).
-For `nuScenes`, set `--dataset nuscenes_monocular`.
+For `nuScenes`, set `dataset` argument to `nuscenes_monocular`.
 
 ### Getting Started
 
