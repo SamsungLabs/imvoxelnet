@@ -17,6 +17,7 @@ class ImVoxelHead(nn.Module):
                  n_channels,
                  n_convs,
                  n_reg_outs,
+                 centerness_topk=-1,
                  regress_ranges=((-1., .75), (.75, 1.5), (1.5, INF)),
                  loss_centerness=dict(
                      type='CrossEntropyLoss',
@@ -33,6 +34,7 @@ class ImVoxelHead(nn.Module):
                  test_cfg=None):
         super().__init__()
         self.n_classes = n_classes
+        self.centerness_topk = centerness_topk
         self.regress_ranges = regress_ranges
         self.loss_centerness = build_loss(loss_centerness)
         self.loss_bbox = build_loss(loss_bbox)
@@ -385,6 +387,15 @@ class SunRgbdImVoxelHead(ImVoxelHead):
                 (max_regress_distance >= regress_ranges[..., 0])
                 & (max_regress_distance <= regress_ranges[..., 1]))
 
+        # condition3: limit topk locations per box by centerness
+        if self.centerness_topk > 0:
+            centerness = compute_centerness(bbox_targets)
+            centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
+            centerness = torch.where(inside_regress_range, centerness, torch.ones_like(centerness) * -1)
+            top_centerness = torch.topk(centerness, self.centerness_topk, dim=0).values[-1]
+            inside_top_centerness = centerness > top_centerness.unsqueeze(0)
+            volumes[inside_top_centerness == 0] = INF
+
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
         volumes[inside_gt_bbox_mask == 0] = INF
@@ -496,6 +507,15 @@ class ScanNetImVoxelHead(ImVoxelHead):
         inside_regress_range = (
                 (max_regress_distance >= regress_ranges[..., 0])
                 & (max_regress_distance <= regress_ranges[..., 1]))
+
+        # condition3: limit topk locations per box by centerness
+        if self.centerness_topk > 0:
+            centerness = compute_centerness(bbox_targets)
+            centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
+            centerness = torch.where(inside_regress_range, centerness, torch.ones_like(centerness) * -1)
+            top_centerness = torch.topk(centerness, self.centerness_topk, dim=0).values[-1]
+            inside_top_centerness = centerness > top_centerness.unsqueeze(0)
+            volumes[inside_top_centerness == 0] = INF
 
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
