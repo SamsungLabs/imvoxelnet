@@ -23,11 +23,13 @@ model = dict(
         up_layers=[3, 2, 1],
         conditional=False),
     bbox_head=dict(
-        type='SunRgbdImVoxelHead',
-        n_classes=10,
+        type='ImVoxelHead',
+        n_classes=30,
         n_channels=64,
         n_convs=0,
-        n_reg_outs=7),
+        n_reg_outs=7,
+        centerness_topk=19,
+        regress_ranges=((-1e8, .6), (.4, 1.1), (0.9, 1e8))),
     n_voxels=(80, 80, 32),
     voxel_size=(.08, .08, .08))
 train_cfg = dict()
@@ -38,10 +40,12 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SunRgbdMultiViewDataset'
+dataset_type = 'SunRgbdPerspectiveMultiViewDataset'
 data_root = 'data/sunrgbd/'
-class_names = ('bed', 'table', 'sofa', 'chair', 'toilet', 'desk', 'dresser',
-               'night_stand', 'bookshelf', 'bathtub')
+class_names = ('recycle_bin', 'cpu', 'paper', 'toilet', 'stool', 'whiteboard', 'coffee_table', 'picture',
+               'keyboard', 'dresser', 'painting', 'bookshelf', 'night_stand', 'endtable', 'drawer', 'sink',
+               'monitor', 'computer', 'cabinet', 'shelf', 'lamp', 'garbage_bin', 'box', 'bed', 'sofa',
+               'sofa_chair', 'pillow', 'desk', 'table', 'chair')
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
@@ -77,7 +81,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'imvoxelnet_sunrgbd_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_perspective_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -85,7 +89,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'imvoxelnet_sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -93,7 +97,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'imvoxelnet_sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
