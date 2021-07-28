@@ -54,7 +54,7 @@ train_pipeline = [
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
-    dict(type='SunrRgbdRandomFlip'),
+    dict(type='SunRgbdRandomFlip'),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -77,7 +77,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'sunrgbd_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_imvoxelnet_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -85,7 +85,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_imvoxelnet_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -93,7 +93,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_imvoxelnet_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
