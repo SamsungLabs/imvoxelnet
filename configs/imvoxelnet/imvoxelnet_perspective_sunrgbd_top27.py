@@ -10,13 +10,6 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch'),
-    head_2d=dict(
-        type='LayoutHead',
-        n_channels=2048,
-        linear_size=256,
-        dropout=.0,
-        loss_angle=dict(type='SmoothL1Loss', loss_weight=100.),
-        loss_layout=dict(type='IoU3DLoss', loss_weight=1.)),
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
@@ -31,11 +24,11 @@ model = dict(
         conditional=False),
     bbox_head=dict(
         type='SunRgbdImVoxelHead',
-        n_classes=33,
+        n_classes=30,
         n_channels=64,
         n_convs=0,
         n_reg_outs=7,
-        centerness_topk=28),
+        centerness_topk=27),
     n_voxels=(80, 80, 32),
     voxel_size=(.08, .08, .08))
 train_cfg = dict()
@@ -46,14 +39,12 @@ test_cfg = dict(
     score_thr=.05)
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-dataset_type = 'SunRgbdTotalMultiViewDataset'
+dataset_type = 'SunRgbdPerspectiveMultiViewDataset'
 data_root = 'data/sunrgbd/'
-class_names = [
-    'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter',
-    'blinds', 'desk', 'shelves', 'curtain', 'dresser', 'pillow', 'mirror', 'clothes', 'books',
-    'fridge', 'tv', 'paper', 'towel', 'shower_curtain', 'box', 'whiteboard', 'person', 'night_stand', 'toilet',
-    'sink', 'lamp', 'bathtub', 'bag'
-]
+class_names = ('recycle_bin', 'cpu', 'paper', 'toilet', 'stool', 'whiteboard', 'coffee_table', 'picture',
+               'keyboard', 'dresser', 'painting', 'bookshelf', 'night_stand', 'endtable', 'drawer', 'sink',
+               'monitor', 'computer', 'cabinet', 'shelf', 'lamp', 'garbage_bin', 'box', 'bed', 'sofa',
+               'sofa_chair', 'pillow', 'desk', 'table', 'chair')
 
 train_pipeline = [
     dict(type='LoadAnnotations3D'),
@@ -61,10 +52,12 @@ train_pipeline = [
         type='MultiViewPipeline',
         n_images=1,
         transforms=[
-            dict(type='SunRgbdTotalLoadImageFromFile'),
+            dict(type='LoadImageFromFile'),
+            dict(type='RandomFlip', flip_ratio=0.5),
             dict(type='Resize', img_scale=[(512, 384), (768, 576)], multiscale_mode='range', keep_ratio=True),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32)]),
+    dict(type='SunRgbdRandomFlip'),
     dict(type='DefaultFormatBundle3D', class_names=class_names),
     dict(type='Collect3D', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])]
 test_pipeline = [
@@ -83,11 +76,11 @@ data = dict(
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
-        times=1,
+        times=2,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'sunrgbd_total_infos_train.pkl',
+            ann_file=data_root + 'sunrgbd_perspective_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             filter_empty_gt=True,
@@ -95,7 +88,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -103,7 +96,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'sunrgbd_total_infos_val.pkl',
+        ann_file=data_root + 'sunrgbd_perspective_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
