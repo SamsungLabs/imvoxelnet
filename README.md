@@ -4,7 +4,7 @@
 # ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection
 
 **News**:
- * :fire: August, 2021. We adapt center sampling for indoor detection. New configs are in [configs/imvoxelnet/*_top27.py](https://github.com/saic-vul/imvoxelnet/tree/master/configs/imvoxelnet). For example, this improves `ScanNet` `mAP` by more than 5%. Models and preprint will be updated soon. 
+ * :fire: August, 2021. We adapt center sampling for indoor detection. For example, this improves `ScanNet` `mAP` by more than 5%. Please find updated configs in [configs/imvoxelnet/*_top27.py](https://github.com/saic-vul/imvoxelnet/tree/master/configs/imvoxelnet) and [models](https://github.com/saic-vul/imvoxelnet/releases/tag/v1.1).
  * :fire: July, 2021. We update `ScanNet` image preprocessing both [here](https://github.com/saic-vul/imvoxelnet/pull/21) and in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d/pull/696).
  * :fire: June, 2021. `ImVoxelNet` for `KITTI` is now [supported](https://github.com/open-mmlab/mmdetection3d/tree/master/configs/imvoxelnet) in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d).
 
@@ -86,14 +86,14 @@ python tools/test.py configs/imvoxelnet/imvoxelnet_kitti.py \
 
 ### Models
 
-| Dataset   | Object Classes | Download Link | Log |
-|:---------:|:--------------:|:-------------:|:---:|
-| SUN RGB-D | 37 from Total3dUnderstanding | [total_sunrgbd.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210525_091810.pth) | [total_sunrgbd.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210525_091810_atlas_total_sunrgbd.log) |
-| SUN RGB-D | 30 from PerspectiveNet | [perspective_sunrgbd.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210526_072029.pth) | [perspective_sunrgbd.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210526_072029_atlas_perspective_sunrgbd.log) |
-| SUN RGB-D | 10 from VoteNet | [sunrgbd.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210428_124351.pth) | [sunrgbd.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210428_124351_atlas_sunrgbd.log) |
-| ScanNet   | 18 from VoteNet | [scannet.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210520_223109.pth) | [scannet.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210520_223109_atlas_scannet.log) |
-| KITTI     | Car | [kitti.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210503_214214.pth) | [kitti.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210503_214214_atlas_kitti.log) |
-| nuScenes  | Car | [nuscenes.pth](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210505_131108.pth) | [nuscenes.log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210505_131108_atlas_nuscenes.log) |
+| Dataset   | Object Classes | Center Sampling | Download |
+|:---------:|:--------------:|:---------------:|:--------:|
+| SUN RGB-D | 37 from Total3dUnderstanding | &#x2718; <br> &#x2714; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210525_091810.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210525_091810_atlas_total_sunrgbd.log) &#124; [config](configs/imvoxelnet/imvoxelnet_total_sunrgbd.py) <br> [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210808_005013.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210808_005013_imvoxelnet_total_sunrgbd_top27.log) &#124; [config](configs/imvoxelnet/imvoxelnet_total_sunrgbd_top27.py)|
+| SUN RGB-D | 30 from PerspectiveNet | &#x2718; <br> &#x2714; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210526_072029.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210526_072029_atlas_perspective_sunrgbd.log) &#124; [config](configs/imvoxelnet/imvoxelnet_perspective_sunrgbd.py) <br> [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210809_114832.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210809_114832_imvoxelnet_perspective_sunrgbd_top27.log) &#124; [config](configs/imvoxelnet/imvoxelnet_perspective_sunrgbd_top27.py)|
+| SUN RGB-D | 10 from VoteNet | &#x2718; <br> &#x2714; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210428_124351.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210428_124351_atlas_sunrgbd.log) &#124; [config](configs/imvoxelnet/imvoxelnet_sunrgbd.py) <br> [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210809_112435.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210809_112435_imvoxelnet_sunrgbd_top27.log) &#124; [config](configs/imvoxelnet/imvoxelnet_sunrgbd_top27.py)|
+| ScanNet   | 18 from VoteNet | &#x2718; <br> &#x2714; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210520_223109.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210520_223109_atlas_scannet.log) &#124; [config](configs/imvoxelnet/imvoxelnet_scannet.py) <br> [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210808_070616.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.1/20210808_070616_imvoxelnet_scannet_top27.log) &#124; [config](configs/imvoxelnet/imvoxelnet_scannet_top27.py)|
+| KITTI     | Car | &#x2718; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210503_214214.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210503_214214_atlas_kitti.log) &#124; [config](configs/imvoxelnet/imvoxelnet_kitti.py) |
+| nuScenes  | Car | &#x2718; | [model](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210505_131108.pth) &#124; [log](https://github.com/saic-vul/imvoxelnet/releases/download/v1.0/20210505_131108_atlas_nuscenes.log) &#124; [config](configs/imvoxelnet/imvoxelnet_nuscenes.py) |
 
 ### Example Detections
 
