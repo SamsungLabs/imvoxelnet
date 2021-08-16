@@ -24,7 +24,7 @@ This repository contains implementation of the monocular/multi-view 3D object de
 For convenience, we provide a [Dockerfile](docker/Dockerfile). Alternatively, you can install all required packages manually.
 
 This implementation is based on [mmdetection3d](https://github.com/open-mmlab/mmdetection3d) framework.
-Please refer to the original installation guide [install.md](docs/install.md), replacing `open-mmlab/mmdetection3d` with `saic-vul/iterdet`.
+Please refer to the original installation guide [install.md](docs/install.md), replacing `open-mmlab/mmdetection3d` with `saic-vul/imvoxelnet`.
 Also, [rotated_iou](https://github.com/lilanxiao/Rotated_IoU) should be installed with [these](https://github.com/saic-vul/imvoxelnet/blob/master/docker/Dockerfile#L31-L34) 4 commands.
 
 Most of the `ImVoxelNet`-related code locates in the following files: 
