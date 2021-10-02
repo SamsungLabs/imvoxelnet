@@ -546,7 +546,7 @@ class ScanNetImVoxelHead(ImVoxelHead):
         bbox_targets = bbox_targets[range(n_points), min_area_inds]
         centerness_targets = compute_centerness(bbox_targets)
 
-        return centerness_targets, gt_bboxes[range(n_points), min_area_inds], labels
+        return centerness_targets, self._bbox_pred_to_bbox(points, bbox_targets), labels
 
     def _nms(self, bboxes, scores, img_meta):
         scores, labels = scores.max(dim=1)
