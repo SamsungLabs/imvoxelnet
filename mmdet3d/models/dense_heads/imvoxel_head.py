@@ -15,10 +15,10 @@ class ImVoxelHead(nn.Module):
     def __init__(self,
                  n_classes,
                  n_channels,
-                 n_convs,
                  n_reg_outs,
+                 n_scales,
+                 limit,
                  centerness_topk=-1,
-                 regress_ranges=((-1., .75), (.75, 1.5), (1.5, INF)),
                  loss_centerness=dict(
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
@@ -34,43 +34,24 @@ class ImVoxelHead(nn.Module):
                  test_cfg=None):
         super().__init__()
         self.n_classes = n_classes
+        self.n_scales = n_scales
+        self.limit = limit
         self.centerness_topk = centerness_topk
-        self.regress_ranges = regress_ranges
         self.loss_centerness = build_loss(loss_centerness)
         self.loss_bbox = build_loss(loss_bbox)
         self.loss_cls = build_loss(loss_cls)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self._init_layers(n_channels, n_convs, n_reg_outs)
+        self._init_layers(n_channels, n_reg_outs)
 
-    def _init_layers(self, n_channels, n_convs, n_reg_outs):
-        self.reg_convs = nn.Sequential(*[
-            nn.Sequential(
-                nn.Conv3d(n_channels, n_channels, 3, padding=1, bias=False),
-                nn.BatchNorm3d(n_channels),
-                nn.ReLU(inplace=True)
-            ) for _ in range(n_convs)])
-        self.cls_convs = nn.Sequential(*[
-            nn.Sequential(
-                nn.Conv3d(n_channels, n_channels, 3, padding=1, bias=False),
-                nn.BatchNorm3d(n_channels),
-                nn.ReLU(inplace=True)
-            ) for _ in range(n_convs)])
-
+    def _init_layers(self, n_channels, n_reg_outs):
         self.centerness_conv = nn.Conv3d(n_channels, 1, 3, padding=1, bias=False)
         self.reg_conv = nn.Conv3d(n_channels, n_reg_outs, 3, padding=1, bias=False)
         self.cls_conv = nn.Conv3d(n_channels, self.n_classes, 3, padding=1)
-        self.scales = nn.ModuleList([Scale(1.) for _ in self.regress_ranges])
+        self.scales = nn.ModuleList([Scale(1.) for _ in range(self.n_scales)])
 
     # Follow AnchorFreeHead.init_weights
     def init_weights(self):
-        for layer in self.reg_convs.modules():
-            if isinstance(layer, nn.Conv3d):
-                normal_init(layer, std=.01)
-        for layer in self.cls_convs.modules():
-            if isinstance(layer, nn.Conv3d):
-                normal_init(layer, std=.01)
-
         normal_init(self.centerness_conv, std=.01)
         normal_init(self.reg_conv, std=.01)
         normal_init(self.cls_conv, std=.01, bias=bias_init_with_prob(.01))
@@ -189,7 +170,7 @@ class ImVoxelHead(nn.Module):
 
         # skip background
         pos_inds = torch.nonzero(torch.logical_and(
-            flatten_labels < self.n_classes,
+            flatten_labels >= 0,
             flatten_valids
         )).reshape(-1)
         n_pos = torch.tensor(len(pos_inds), dtype=torch.float, device=centernesses[0].device)
@@ -324,15 +305,13 @@ class ImVoxelHead(nn.Module):
 @HEADS.register_module()
 class SunRgbdImVoxelHead(ImVoxelHead):
     def forward_single(self, x, scale):
-        reg = self.reg_convs(x)
-        cls = self.cls_convs(x)
-        reg_final = self.reg_conv(reg)
+        reg_final = self.reg_conv(x)
         reg_distance = torch.exp(scale(reg_final[:, :6]))
-        reg_angle = reg_final[:, 6:7]
+        reg_angle = reg_final[:, 6:]
         return (
-            self.centerness_conv(reg),
+            self.centerness_conv(x),
             torch.cat((reg_distance, reg_angle), dim=1),
-            self.cls_conv(cls)
+            self.cls_conv(x)
         )
 
     def _bbox_pred_to_loss(self, points, bbox_preds):
@@ -343,22 +322,19 @@ class SunRgbdImVoxelHead(ImVoxelHead):
 
     @torch.no_grad()
     def get_targets(self, points, gt_bboxes, gt_labels):
-        assert len(points) == len(self.regress_ranges)
-        # expand regress ranges to align with points
-        expanded_regress_ranges = [
-            points[i].new_tensor(self.regress_ranges[i]).expand(len(points[i]), 2)
+        float_max = 1e8
+        expanded_scales = [
+            points[i].new_tensor(i).expand(len(points[i])).to(gt_labels.device)
             for i in range(len(points))
         ]
-        # concat all levels points and regress ranges
-        regress_ranges = torch.cat(expanded_regress_ranges, dim=0)
-        points = torch.cat(points, dim=0)
+        points = torch.cat(points, dim=0).to(gt_labels.device)
+        scales = torch.cat(expanded_scales, dim=0)
 
         # below is based on FCOSHead._get_target_single
         n_points = len(points)
         n_boxes = len(gt_bboxes)
         volumes = gt_bboxes.volume.to(points.device)
         volumes = volumes.expand(n_points, n_boxes).contiguous()
-        regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
         gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
         gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 7)
         expanded_points = points.unsqueeze(1).expand(n_points, n_boxes, 3)
@@ -376,36 +352,49 @@ class SunRgbdImVoxelHead(ImVoxelHead):
         dz_min = centers[..., 2] - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
         dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - centers[..., 2]
         bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, gt_bboxes[..., 6]), dim=-1)
-        centerness_targets = compute_centerness(bbox_targets)
 
         # condition1: inside a gt bbox
         inside_gt_bbox_mask = bbox_targets[..., :6].min(-1)[0] > 0  # skip angle
 
-        # condition2: limit the regression range for each location
-        max_regress_distance = bbox_targets[..., :6].max(-1)[0]  # skip angle
-        inside_regress_range = (
-                (max_regress_distance >= regress_ranges[..., 0])
-                & (max_regress_distance <= regress_ranges[..., 1]))
+        # condition2: positive points per scale >= limit
+        # calculate positive points per scale
+        n_pos_points_per_scale = []
+        for i in range(self.n_scales):
+            n_pos_points_per_scale.append(torch.sum(inside_gt_bbox_mask[scales == i], dim=0))
+        # find best scale
+        n_pos_points_per_scale = torch.stack(n_pos_points_per_scale, dim=0)
+        lower_limit_mask = n_pos_points_per_scale < self.limit
+        # fix nondeterministic argmax for torch<1.7
+        extra = torch.arange(self.n_scales, 0, -1).unsqueeze(1).expand(self.n_scales, n_boxes).to(lower_limit_mask.device)
+        lower_index = torch.argmax(lower_limit_mask.int() * extra, dim=0) - 1
+        lower_index = torch.where(lower_index < 0, torch.zeros_like(lower_index), lower_index)
+        all_upper_limit_mask = torch.all(torch.logical_not(lower_limit_mask), dim=0)
+        best_scale = torch.where(all_upper_limit_mask, torch.ones_like(all_upper_limit_mask) * self.n_scales - 1, lower_index)
+        # keep only points with best scale
+        best_scale = torch.unsqueeze(best_scale, 0).expand(n_points, n_boxes)
+        scales = torch.unsqueeze(scales, 1).expand(n_points, n_boxes)
+        inside_best_scale_mask = best_scale == scales
 
         # condition3: limit topk locations per box by centerness
-        if self.centerness_topk > 0:
-            centerness = compute_centerness(bbox_targets)
-            centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
-            centerness = torch.where(inside_regress_range, centerness, torch.ones_like(centerness) * -1)
-            top_centerness = torch.topk(centerness, self.centerness_topk, dim=0).values[-1]
-            inside_top_centerness = centerness > top_centerness.unsqueeze(0)
-            volumes[inside_top_centerness == 0] = INF
+        centerness = compute_centerness(bbox_targets)
+        centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
+        centerness = torch.where(inside_best_scale_mask, centerness, torch.ones_like(centerness) * -1)
+        top_centerness = torch.topk(centerness, self.centerness_topk + 1, dim=0).values[-1]
+        inside_top_centerness_mask = centerness > top_centerness.unsqueeze(0)
 
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
-        volumes[inside_gt_bbox_mask == 0] = INF
-        volumes[inside_regress_range == 0] = INF
+        volumes = torch.where(inside_gt_bbox_mask, volumes, torch.ones_like(volumes) * float_max)
+        volumes = torch.where(inside_best_scale_mask, volumes, torch.ones_like(volumes) * float_max)
+        volumes = torch.where(inside_top_centerness_mask, volumes, torch.ones_like(volumes) * float_max)
         min_area, min_area_inds = volumes.min(dim=1)
 
         labels = gt_labels[min_area_inds]
-        labels[min_area == INF] = self.n_classes  # set as BG
+        labels = torch.where(min_area == float_max, torch.ones_like(labels) * -1, labels)
+        bbox_targets = bbox_targets[range(n_points), min_area_inds]
+        centerness_targets = compute_centerness(bbox_targets)
 
-        return centerness_targets[range(n_points), min_area_inds], gt_bboxes[range(n_points), min_area_inds], labels
+        return centerness_targets, gt_bboxes[range(n_points), min_area_inds], labels
 
     def _nms(self, bboxes, scores, img_meta):
         # Add a dummy background class to the end. Nms needs to be fixed in the future.
@@ -434,30 +423,52 @@ class SunRgbdImVoxelHead(ImVoxelHead):
         if bbox_pred.shape[0] == 0:
             return bbox_pred
 
-        shift = torch.stack((
-            (bbox_pred[:, 1] - bbox_pred[:, 0]) / 2,
-            (bbox_pred[:, 3] - bbox_pred[:, 2]) / 2,
-            (bbox_pred[:, 5] - bbox_pred[:, 4]) / 2
-        ), dim=-1).view(-1, 1, 3)
-        shift = rotation_3d_in_axis(shift, bbox_pred[:, 6], axis=2)[:, 0, :]
-        center = points + shift
-        size = torch.stack((
-            bbox_pred[:, 0] + bbox_pred[:, 1],
-            bbox_pred[:, 2] + bbox_pred[:, 3],
-            bbox_pred[:, 4] + bbox_pred[:, 5]
+        # todo: move to separate function
+        # dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, alpha ->
+        # x_center, y_center, z_center, w, l, h, alpha
+        # shift = torch.stack((
+        #     (bbox_pred[:, 1] - bbox_pred[:, 0]) / 2,
+        #     (bbox_pred[:, 3] - bbox_pred[:, 2]) / 2,
+        #     (bbox_pred[:, 5] - bbox_pred[:, 4]) / 2
+        # ), dim=-1).view(-1, 1, 3)
+        # shift = rotation_3d_in_axis(shift, bbox_pred[:, 6], axis=2)[:, 0, :]
+        # center = points + shift
+        # size = torch.stack((
+        #     bbox_pred[:, 0] + bbox_pred[:, 1],
+        #     bbox_pred[:, 2] + bbox_pred[:, 3],
+        #     bbox_pred[:, 4] + bbox_pred[:, 5]
+        # ), dim=-1)
+        # return torch.cat((center, size, bbox_pred[:, 6:7]), dim=-1)
+        # todo: this is sin-cos parametrization
+        # norm = torch.sqrt(torch.pow(bbox_pred[:, 6], 2) + torch.pow(bbox_pred[:, 7], 2))
+        # sin = bbox_pred[:, 6] / norm
+        # cos = bbox_pred[:, 7] / norm
+        # alpha = torch.atan2(sin, cos).unsqueeze(1)
+        # return torch.cat((center, size, alpha), dim=-1)
+
+        # dx_min, dx_max, dy_min, dy_max, dz_min, dz_max, sin(2a)ln(q), cos(2a)ln(q) ->
+        # x_center, y_center, z_center, w, l, h, alpha
+        scale = bbox_pred[:, 0] + bbox_pred[:, 1] + bbox_pred[:, 2] + bbox_pred[:, 3]
+        q = torch.exp(torch.sqrt(torch.pow(bbox_pred[:, 6], 2) + torch.pow(bbox_pred[:, 7], 2)))
+        alpha = 0.5 * torch.atan2(bbox_pred[:, 6], bbox_pred[:, 7])
+        return torch.stack((
+            points[:, 0] + (bbox_pred[:, 1] - bbox_pred[:, 0]) / 2,
+            points[:, 1] + (bbox_pred[:, 3] - bbox_pred[:, 2]) / 2,
+            points[:, 2] + (bbox_pred[:, 5] - bbox_pred[:, 4]) / 2,
+            scale / (1 + q),
+            scale * q / (1 + q),
+            bbox_pred[:, 5] + bbox_pred[:, 4],
+            alpha
         ), dim=-1)
-        return torch.cat((center, size, bbox_pred[:, 6:7]), dim=-1)
 
 
 @HEADS.register_module()
 class ScanNetImVoxelHead(ImVoxelHead):
     def forward_single(self, x, scale):
-        reg = self.reg_convs(x)
-        cls = self.cls_convs(x)
         return (
-            self.centerness_conv(reg),
-            torch.exp(scale(self.reg_conv(reg))),
-            self.cls_conv(cls)
+            self.centerness_conv(x),
+            torch.exp(scale(self.reg_conv(x))),
+            self.cls_conv(x)
         )
 
     def _bbox_pred_to_loss(self, points, bbox_preds):
@@ -468,67 +479,74 @@ class ScanNetImVoxelHead(ImVoxelHead):
 
     @torch.no_grad()
     def get_targets(self, points, gt_bboxes, gt_labels):
-        assert len(points) == len(self.regress_ranges)
-        # expand regress ranges to align with points
-        expanded_regress_ranges = [
-            points[i].new_tensor(self.regress_ranges[i]).expand(len(points[i]), 2)
+        float_max = 1e8
+        expanded_scales = [
+            points[i].new_tensor(i).expand(len(points[i])).to(gt_labels.device)
             for i in range(len(points))
         ]
-        # concat all levels points and regress ranges
-        regress_ranges = torch.cat(expanded_regress_ranges, dim=0)
-        points = torch.cat(points, dim=0)
+        points = torch.cat(points, dim=0).to(gt_labels.device)
+        scales = torch.cat(expanded_scales, dim=0)
 
         # below is based on FCOSHead._get_target_single
         n_points = len(points)
         n_boxes = len(gt_bboxes)
         volumes = gt_bboxes.volume.to(points.device)
         volumes = volumes.expand(n_points, n_boxes).contiguous()
-        regress_ranges = regress_ranges[:, None, :].expand(n_points, n_boxes, 2)
-        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.dims), dim=1)
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:6]), dim=1)
         gt_bboxes = gt_bboxes.to(points.device).expand(n_points, n_boxes, 6)
-        xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
-        xs = xs[:, None].expand(n_points, n_boxes)
-        ys = ys[:, None].expand(n_points, n_boxes)
-        zs = zs[:, None].expand(n_points, n_boxes)
-
-        dx_min = xs - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
-        dx_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - xs
-        dy_min = ys - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
-        dy_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - ys
-        dz_min = zs - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
-        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - zs
+        expanded_points = points.unsqueeze(1).expand(n_points, n_boxes, 3)
+        dx_min = expanded_points[..., 0] - gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2
+        dx_max = gt_bboxes[..., 0] + gt_bboxes[..., 3] / 2 - expanded_points[..., 0]
+        dy_min = expanded_points[..., 1] - gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2
+        dy_max = gt_bboxes[..., 1] + gt_bboxes[..., 4] / 2 - expanded_points[..., 1]
+        dz_min = expanded_points[..., 2] - gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2
+        dz_max = gt_bboxes[..., 2] + gt_bboxes[..., 5] / 2 - expanded_points[..., 2]
         bbox_targets = torch.stack((dx_min, dx_max, dy_min, dy_max, dz_min, dz_max), dim=-1)
 
         # condition1: inside a gt bbox
-        inside_gt_bbox_mask = bbox_targets.min(-1)[0] > 0
+        inside_gt_bbox_mask = bbox_targets[..., :6].min(-1)[0] > 0  # skip angle
 
-        # condition2: limit the regression range for each location
-        max_regress_distance = bbox_targets.max(-1)[0]
-        inside_regress_range = (
-                (max_regress_distance >= regress_ranges[..., 0])
-                & (max_regress_distance <= regress_ranges[..., 1]))
+        # condition2: positive points per scale >= limit
+        # calculate positive points per scale
+        n_pos_points_per_scale = []
+        for i in range(self.n_scales):
+            n_pos_points_per_scale.append(torch.sum(inside_gt_bbox_mask[scales == i], dim=0))
+        # find best scale
+        n_pos_points_per_scale = torch.stack(n_pos_points_per_scale, dim=0)
+        lower_limit_mask = n_pos_points_per_scale < self.limit
+        # fix nondeterministic argmax for torch<1.7
+        extra = torch.arange(self.n_scales, 0, -1).unsqueeze(1).expand(self.n_scales, n_boxes).to(
+            lower_limit_mask.device)
+        lower_index = torch.argmax(lower_limit_mask.int() * extra, dim=0) - 1
+        lower_index = torch.where(lower_index < 0, torch.zeros_like(lower_index), lower_index)
+        all_upper_limit_mask = torch.all(torch.logical_not(lower_limit_mask), dim=0)
+        best_scale = torch.where(all_upper_limit_mask, torch.ones_like(all_upper_limit_mask) * self.n_scales - 1,
+                                 lower_index)
+        # keep only points with best scale
+        best_scale = torch.unsqueeze(best_scale, 0).expand(n_points, n_boxes)
+        scales = torch.unsqueeze(scales, 1).expand(n_points, n_boxes)
+        inside_best_scale_mask = best_scale == scales
 
         # condition3: limit topk locations per box by centerness
-        if self.centerness_topk > 0:
-            centerness = compute_centerness(bbox_targets)
-            centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
-            centerness = torch.where(inside_regress_range, centerness, torch.ones_like(centerness) * -1)
-            top_centerness = torch.topk(centerness, self.centerness_topk, dim=0).values[-1]
-            inside_top_centerness = centerness > top_centerness.unsqueeze(0)
-            volumes[inside_top_centerness == 0] = INF
+        centerness = compute_centerness(bbox_targets)
+        centerness = torch.where(inside_gt_bbox_mask, centerness, torch.ones_like(centerness) * -1)
+        centerness = torch.where(inside_best_scale_mask, centerness, torch.ones_like(centerness) * -1)
+        top_centerness = torch.topk(centerness, self.centerness_topk + 1, dim=0).values[-1]
+        inside_top_centerness_mask = centerness > top_centerness.unsqueeze(0)
 
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
-        volumes[inside_gt_bbox_mask == 0] = INF
-        volumes[inside_regress_range == 0] = INF
+        volumes = torch.where(inside_gt_bbox_mask, volumes, torch.ones_like(volumes) * float_max)
+        volumes = torch.where(inside_best_scale_mask, volumes, torch.ones_like(volumes) * float_max)
+        volumes = torch.where(inside_top_centerness_mask, volumes, torch.ones_like(volumes) * float_max)
         min_area, min_area_inds = volumes.min(dim=1)
 
         labels = gt_labels[min_area_inds]
-        labels[min_area == INF] = self.n_classes  # set as BG
+        labels = torch.where(min_area == float_max, torch.ones_like(labels) * -1, labels)
         bbox_targets = bbox_targets[range(n_points), min_area_inds]
         centerness_targets = compute_centerness(bbox_targets)
 
-        return centerness_targets, self._bbox_pred_to_bbox(points, bbox_targets), labels
+        return centerness_targets, gt_bboxes[range(n_points), min_area_inds], labels
 
     def _nms(self, bboxes, scores, img_meta):
         scores, labels = scores.max(dim=1)
