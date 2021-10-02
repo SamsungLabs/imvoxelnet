@@ -19,7 +19,7 @@ model = dict(
         type='ImVoxelNeck',
         in_channels=256,
         out_channels=128,
-        n_blocks=[1, 1, 1]),
+        n_blocks=[3, 3, 3]),
     bbox_head=dict(
         type='ScanNetImVoxelHead',
         loss_bbox=dict(type='AxisAlignedIoULoss', loss_weight=1.0),
