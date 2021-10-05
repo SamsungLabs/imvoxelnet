@@ -4,6 +4,7 @@
 # ImVoxelNet: Image to Voxels Projection for Monocular and Multi-View General-Purpose 3D Object Detection
 
 **News**:
+ * :fire: October, 2021. Our paper is accepted at [WACV 2022](https://wacv2022.thecvf.com). 
  * :fire: August, 2021. We adapt center sampling for indoor detection. For example, this improves `ScanNet` `mAP` by more than 5%. Please find updated configs in [configs/imvoxelnet/*_top27.py](https://github.com/saic-vul/imvoxelnet/tree/master/configs/imvoxelnet) and [models](https://github.com/saic-vul/imvoxelnet/releases/tag/v1.1).
  * :fire: July, 2021. We update `ScanNet` image preprocessing both [here](https://github.com/saic-vul/imvoxelnet/pull/21) and in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d/pull/696).
  * :fire: June, 2021. `ImVoxelNet` for `KITTI` is now [supported](https://github.com/open-mmlab/mmdetection3d/tree/master/configs/imvoxelnet) in [mmdetection3d](https://github.com/open-mmlab/mmdetection3d).
