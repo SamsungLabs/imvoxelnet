@@ -7,6 +7,7 @@ from .shape_aware_head import ShapeAwareHead
 from .ssd_3d_head import SSD3DHead
 from .vote_head import VoteHead
 from .imvoxel_head import SunRgbdImVoxelHead, ScanNetImVoxelHead
+from .imvoxel_head_v2 import SunRgbdImVoxelHeadV2, ScanNetImVoxelHeadV2
 from .layout_head import LayoutHead
 
 __all__ = [
