@@ -23,13 +23,11 @@ class FastIndoorImVoxelNeck(nn.Module):
         down_outs = []
         for i in range(self.n_scales):
             x = self.__getattr__(f'down_layer_{i}')(x)
-            # print('down_outs', x.shape)
             down_outs.append(x)
         outs = []
         for i in range(self.n_scales - 1, -1, -1):
             if i < self.n_scales - 1:
                 x = self.__getattr__(f'up_block_{i + 1}')(x)
-                # print(f'up_block_{i + 1}', x.shape)
                 x = down_outs[i] + x
             out = self.__getattr__(f'out_block_{i}')(x)
             outs.append(out)
