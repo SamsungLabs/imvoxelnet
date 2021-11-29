@@ -54,7 +54,6 @@ We support three benchmarks based on the **SUN RGB-D** dataset.
 
 For **ScanNet** please follow instructions in [scannet](data/scannet).
 For **KITTI** and **nuScenes**, please follow instructions in [getting_started.md](docs/getting_started.md).
-For `nuScenes`, set `dataset` argument to `nuscenes_monocular`.
 
 ### Getting Started
 
