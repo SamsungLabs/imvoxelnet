@@ -12,11 +12,12 @@ RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/
 # Update torch and torchvision
 RUN pip install torch==1.6.0+cu101 torchvision==0.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 
-# Install MMCV
+# Install MMCV and MMDetection
 RUN pip install mmcv-full==1.2.7 -f https://download.openmmlab.com/mmcv/dist/cu101/torch1.6.0/index.html
+RUN conda install cython
 RUN pip install mmdet==2.10.0
 
-# Install MMDetection
+# Install MMDetection3D (ImVoxelNet)
 RUN conda clean --all
 RUN git clone https://github.com/samsunglabs/imvoxelnet /mmdetection3d
 WORKDIR /mmdetection3d
