@@ -17,7 +17,7 @@ This repository contains implementation of the monocular/multi-view 3D object de
 > [Anna Vorontsova](https://github.com/highrut),
 > [Anton Konushin](https://scholar.google.com/citations?user=ZT_k-wMAAAAJ)
 > <br>
-> Samsung AI Center Moscow <br>
+> Samsung Research<br>
 > https://arxiv.org/abs/2106.01178
 
 <p align="center"><img src="./resources/scheme.png" alt="drawing" width="90%"/></p>
